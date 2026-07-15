@@ -1,0 +1,29 @@
+{
+  "name": "@rte/api",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@fastify/cors": "^10.0.2",
+    "@fastify/formbody": "^8.0.2",
+    "@fastify/static": "^8.1.0",
+    "@rte/agilepilot": "*",
+    "@rte/complybot": "*",
+    "@rte/core": "*",
+    "@rte/housesignal": "*",
+    "@rte/planningpulse": "*",
+    "@rte/tradetap": "*",
+    "dotenv": "^17.4.2",
+    "fastify": "^5.2.1",
+    "tsx": "^4.19.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "typescript": "^5.8.2"
+  }
+}

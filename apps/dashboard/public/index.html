@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Red Tape Engine</title>
+  <style>
+    :root {
+      --bg: #0a0e14;
+      --surface: #121820;
+      --border: #1e2a3a;
+      --text: #e8edf4;
+      --muted: #7a8ba3;
+      --accent: #00d4aa;
+      --accent2: #3b82f6;
+      --warn: #f59e0b;
+      --danger: #ef4444;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+    header {
+      border-bottom: 1px solid var(--border);
+      padding: 1.25rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: linear-gradient(180deg, #0f1520 0%, var(--bg) 100%);
+    }
+    header h1 { font-size: 1.25rem; font-weight: 600; letter-spacing: -0.02em; }
+    header h1 span { color: var(--accent); }
+    .badge {
+      font-size: 0.7rem;
+      padding: 0.2rem 0.6rem;
+      border-radius: 999px;
+      background: rgba(0, 212, 170, 0.15);
+      color: var(--accent);
+      border: 1px solid rgba(0, 212, 170, 0.3);
+    }
+    main { padding: 2rem; max-width: 1400px; margin: 0 auto; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem;
+    }
+    .card h2 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 0.5rem; }
+    .card .value { font-size: 2rem; font-weight: 700; letter-spacing: -0.03em; }
+    .card .sub { font-size: 0.85rem; color: var(--muted); margin-top: 0.25rem; }
+    .verticals { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 1rem; }
+    .vertical {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .vertical-header {
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .vertical-header h3 { font-size: 1rem; font-weight: 600; }
+    .tag {
+      font-size: 0.65rem;
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      background: rgba(59, 130, 246, 0.15);
+      color: var(--accent2);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .vertical-body { padding: 1.25rem; font-size: 0.9rem; }
+    .metric-row { display: flex; justify-content: space-between; padding: 0.4rem 0; border-bottom: 1px solid var(--border); }
+    .metric-row:last-child { border: none; }
+    .metric-row span:last-child { font-weight: 600; color: var(--accent); }
+    .actions { margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    button {
+      background: rgba(0, 212, 170, 0.12);
+      color: var(--accent);
+      border: 1px solid rgba(0, 212, 170, 0.35);
+      padding: 0.45rem 0.9rem;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    button:hover { background: rgba(0, 212, 170, 0.22); }
+    button.secondary {
+      background: rgba(59, 130, 246, 0.12);
+      color: var(--accent2);
+      border-color: rgba(59, 130, 246, 0.35);
+    }
+    pre.report {
+      background: #080c10;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      font-size: 0.75rem;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      margin-top: 1rem;
+      display: none;
+      color: var(--muted);
+    }
+    pre.report.visible { display: block; }
+    .robot-goal {
+      margin-top: 2rem;
+      padding: 1.25rem;
+      border-radius: 12px;
+      border: 1px dashed rgba(0, 212, 170, 0.4);
+      background: rgba(0, 212, 170, 0.05);
+      text-align: center;
+    }
+    .robot-goal .value { font-size: 1.5rem; color: var(--accent); font-weight: 700; }
+    .progress-bar {
+      height: 8px;
+      background: var(--border);
+      border-radius: 4px;
+      margin-top: 0.75rem;
+      overflow: hidden;
+    }
+    .progress-bar div {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 4px;
+      transition: width 0.5s ease;
+    }
+    #status { color: var(--muted); font-size: 0.8rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Red Tape <span>Engine</span></h1>
+    <div>
+      <span class="badge" id="mode-badge">LOADING</span>
+      <span id="status" style="margin-left: 1rem"></span>
+    </div>
+  </header>
+
+  <main>
+    <div class="grid" id="summary-cards"></div>
+    <div class="verticals" id="verticals"></div>
+
+    <div class="robot-goal">
+      <div>Robot Body Fund (Unitree G1 ≈ £12,000)</div>
+      <div class="value" id="robot-progress">£0 / £12,000</div>
+      <div class="progress-bar"><div id="robot-bar" style="width: 0%"></div></div>
+      <div class="sub" style="margin-top: 0.5rem; color: var(--muted); font-size: 0.8rem">
+        At £99/mo × 10 trades = £990/mo → robot in ~12 months. One accountant × 20 clients = ~10 months.
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const API = '/api/proxy';
+    const ORIGIN = window.location.origin;
+    const ROBOT_TARGET = 12000;
+
+    const VERTICAL_META = {
+      tradetap: { label: 'TradeTap', price: '£99/mo', color: 'var(--accent)' },
+      complybot: { label: 'ComplyBot', price: '£19/mo', color: 'var(--accent2)' },
+      planningpulse: { label: 'PlanningPulse', price: '£49/mo', color: 'var(--warn)' },
+      agilepilot: { label: 'AgilePilot', price: '£9.99/mo', color: 'var(--accent)' },
+      housesignal: { label: 'HouseSignal', price: '£199/mo', color: 'var(--accent2)' },
+    };
+
+    function renderSummary(tenants) {
+      const tradetap = tenants.find(t => t.vertical === 'tradetap');
+      const totalRevenue = tradetap?.attributedRevenueGbp ?? '0.00';
+      const recovered = tradetap?.recoveredJobs ?? 0;
+      const missed = tradetap?.missedCalls ?? 0;
+
+      document.getElementById('summary-cards').innerHTML = `
+        <div class="card">
+          <h2>Jobs Recovered (7d)</h2>
+          <div class="value">${recovered}</div>
+          <div class="sub">from ${missed} missed calls</div>
+        </div>
+        <div class="card">
+          <h2>Revenue Attributed</h2>
+          <div class="value">£${totalRevenue}</div>
+          <div class="sub">TradeTap this week</div>
+        </div>
+        <div class="card">
+          <h2>Active Verticals</h2>
+          <div class="value">${tenants.length}</div>
+          <div class="sub">All systems operational</div>
+        </div>
+        <div class="card">
+          <h2>Recovery Rate</h2>
+          <div class="value">${tradetap?.recoveryRate ?? 0}%</div>
+          <div class="sub">SMS → booking within 72h</div>
+        </div>
+      `;
+
+      const mrr = tenants.length * 99;
+      const pct = Math.min(100, (mrr / ROBOT_TARGET) * 100);
+      document.getElementById('robot-progress').textContent = `£${mrr} MRR potential / £${ROBOT_TARGET.toLocaleString()}`;
+      document.getElementById('robot-bar').style.width = pct + '%';
+    }
+
+    function renderVertical(t) {
+      const meta = VERTICAL_META[t.vertical] ?? { label: t.vertical, price: '—' };
+      let metrics = '';
+
+      if (t.vertical === 'tradetap') {
+        metrics = `
+          <div class="metric-row"><span>Missed calls</span><span>${t.missedCalls ?? 0}</span></div>
+          <div class="metric-row"><span>Recovered</span><span>${t.recoveredJobs ?? 0}</span></div>
+          <div class="metric-row"><span>Revenue</span><span>£${t.attributedRevenueGbp ?? '0'}</span></div>
+        `;
+      } else if (t.vertical === 'complybot') {
+        metrics = `
+          <div class="metric-row"><span>Expenses tracked</span><span>${t.count ?? 0}</span></div>
+          <div class="metric-row"><span>Total</span><span>£${t.totalExpenses ?? '0'}</span></div>
+        `;
+      } else if (t.vertical === 'planningpulse') {
+        metrics = `<div class="metric-row"><span>Alerts</span><span>${t.alertCount ?? 0}</span></div>`;
+      } else if (t.vertical === 'agilepilot') {
+        metrics = `
+          <div class="metric-row"><span>Cheapest slot</span><span>${t.cheapestSlot ?? '—'}p/kWh</span></div>
+          <div class="metric-row"><span>Savings</span><span>${t.savings ?? '—'}</span></div>
+        `;
+      } else if (t.vertical === 'housesignal') {
+        metrics = `<div class="metric-row"><span>Recent signals</span><span>${t.recentSignals ?? 0}</span></div>`;
+      }
+
+      const actions = t.vertical === 'tradetap'
+        ? `<button onclick="loadReport('${t.id}')">Weekly Report</button>
+           <button class="secondary" onclick="simulateCall('${t.id}')">Simulate Call</button>`
+        : t.vertical === 'planningpulse'
+        ? `<button class="secondary" onclick="pollPlanning('${t.id}')">Poll Now</button>`
+        : t.vertical === 'housesignal'
+        ? `<button class="secondary" onclick="scanCompanies('${t.id}')">Scan CH</button>`
+        : '';
+
+      return `
+        <div class="vertical">
+          <div class="vertical-header">
+            <h3>${t.name}</h3>
+            <span class="tag">${meta.label} · ${meta.price}</span>
+          </div>
+          <div class="vertical-body">
+            ${metrics}
+            <div class="actions">${actions}</div>
+            <pre class="report" id="report-${t.id}"></pre>
+          </div>
+        </div>
+      `;
+    }
+
+    async function load() {
+      try {
+        const res = await fetch(`${API}/overview`);
+        const data = await res.json();
+        document.getElementById('mode-badge').textContent = data.demoMode ? 'DEMO MODE' : 'LIVE';
+        document.getElementById('status').textContent = `Updated ${new Date().toLocaleTimeString()}`;
+        renderSummary(data.tenants);
+        document.getElementById('verticals').innerHTML = data.tenants.map(renderVertical).join('');
+      } catch (e) {
+        document.getElementById('status').textContent = 'API offline — start with npm run dev';
+      }
+    }
+
+    async function loadReport(tenantId) {
+      const res = await fetch(`${API}/tradetap/${tenantId}/report`);
+      const text = await res.text();
+      const el = document.getElementById(`report-${tenantId}`);
+      el.textContent = text;
+      el.classList.add('visible');
+    }
+
+    async function simulateCall(tenantId) {
+      await fetch(`${ORIGIN}/api/tradetap/simulate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenantId, transcript: 'Boiler broken, need quote ASAP' }),
+      });
+      load();
+    }
+
+    async function pollPlanning(tenantId) {
+      await fetch(`${ORIGIN}/api/planningpulse/poll`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenantId }),
+      });
+      load();
+    }
+
+    async function scanCompanies(tenantId) {
+      await fetch(`${ORIGIN}/api/housesignal/scan`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenantId, sicCodes: ['62012'] }),
+      });
+      load();
+    }
+
+    load();
+    setInterval(load, 15000);
+  </script>
+</body>
+</html>

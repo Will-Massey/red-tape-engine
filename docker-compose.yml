@@ -1,0 +1,14 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: rte
+      POSTGRES_PASSWORD: rte
+      POSTGRES_DB: red_tape_engine
+    volumes:
+      - rte_pg_data:/var/lib/postgresql/data
+
+volumes:
+  rte_pg_data:

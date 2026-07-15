@@ -1,0 +1,22 @@
+{
+  "name": "red-tape-engine",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "dev": "npm run dev -w @rte/api",
+    "dev:dashboard": "npm run dev -w @rte/dashboard",
+    "start": "npm run start -w @rte/api",
+    "postinstall": "echo 'Red Tape Engine ready'",
+    "db:generate": "npm run db:generate -w @rte/core",
+    "db:migrate": "npm run db:migrate -w @rte/core",
+    "db:seed": "npm run db:seed -w @rte/core",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
