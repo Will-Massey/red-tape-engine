@@ -1,6 +1,9 @@
-import { eq } from 'drizzle-orm';
-import { db, schema, summarisePlanningAlert, logUsage } from '@rte/core';
+import { and, eq, inArray } from 'drizzle-orm';
+import { db, schema, summarisePlanningAlert, logUsage, isDemoMode } from '@rte/core';
 import type { PlanningApplication } from '@rte/core';
+import { sendPlanningDigest, type DigestResult } from './digest.js';
+
+type AlertRow = typeof schema.planningAlerts.$inferSelect;
 
 const PLANNING_API = 'https://www.planning.data.gov.uk/entity.json';
 
@@ -15,6 +18,31 @@ function haversineMetres(lat1: number, lng1: number, lat2: number, lng2: number)
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+/**
+ * Reads a real location from an entity, or null if it has none.
+ *
+ * Every alert claims a distance from the subscriber's site, so a made-up
+ * coordinate is a made-up distance. An application whose location we cannot
+ * establish is dropped rather than placed somewhere plausible.
+ */
+function locationOf(e: Record<string, unknown>): { lat: number; lng: number } | null {
+  const point = typeof e.point === 'string' ? e.point : '';
+  const wkt = point.match(/POINT\s*\(\s*(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s*\)/i);
+  if (wkt) {
+    const lng = Number(wkt[1]);
+    const lat = Number(wkt[2]);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };
+  }
+
+  const lat = Number(e.latitude ?? e.lat);
+  const lng = Number(e.longitude ?? e.lng);
+  if (Number.isFinite(lat) && Number.isFinite(lng) && (lat !== 0 || lng !== 0)) {
+    return { lat, lng };
+  }
+
+  return null;
+}
+
 async function fetchRecentApplications(): Promise<PlanningApplication[]> {
   try {
     const url = `${PLANNING_API}?dataset=planning-application&limit=20`;
@@ -24,17 +52,39 @@ async function fetchRecentApplications(): Promise<PlanningApplication[]> {
       entities?: Array<Record<string, unknown>>;
     };
 
-    return (data.entities ?? []).map((e, i) => ({
-      reference: String(e.reference ?? e['reference-number'] ?? `APP-${i}`),
-      lpa: String(e.organisation ?? e['planning-decision-making-body'] ?? 'Unknown LPA'),
-      description: String(e.description ?? e.name ?? 'Planning application'),
-      address: String(e.address ?? e['site-address'] ?? 'UK'),
-      lat: Number(e.latitude ?? e.lat ?? 51.5074 + (Math.random() - 0.5) * 0.1),
-      lng: Number(e.longitude ?? e.lng ?? -0.1278 + (Math.random() - 0.5) * 0.1),
-      status: String(e['decision-date'] ?? e.status ?? 'submitted'),
-      receivedAt: String(e['entry-date'] ?? new Date().toISOString()),
-    }));
-  } catch {
+    const entities = data.entities ?? [];
+    const located: PlanningApplication[] = [];
+
+    for (const [i, e] of entities.entries()) {
+      const location = locationOf(e);
+      if (!location) continue;
+
+      located.push({
+        reference: String(e.reference ?? e['reference-number'] ?? `APP-${i}`),
+        lpa: String(e.organisation ?? e['planning-decision-making-body'] ?? 'Unknown LPA'),
+        description: String(e.description ?? e.name ?? 'Planning application'),
+        address: String(e.address ?? e['site-address'] ?? 'UK'),
+        lat: location.lat,
+        lng: location.lng,
+        status: String(e['decision-date'] ?? e.status ?? 'submitted'),
+        receivedAt: String(e['entry-date'] ?? new Date().toISOString()),
+      });
+    }
+
+    if (located.length < entities.length) {
+      console.warn(
+        `PlanningPulse: ${entities.length - located.length}/${entities.length} applications ` +
+          'had no location and were skipped — proximity cannot be computed for them.',
+      );
+    }
+
+    // Demo mode still needs something to match against; live mode must not
+    // invent applications that nobody filed.
+    if (!located.length && isDemoMode()) return demoApplications();
+
+    return located;
+  } catch (err) {
+    if (!isDemoMode()) throw err;
     return demoApplications();
   }
 }
@@ -102,6 +152,32 @@ export async function createSubscription(input: {
   return sub;
 }
 
+/**
+ * References already alerted for these tenants, so a repeated poll (the daily
+ * cron re-reads the same open applications) does not re-alert or re-email them.
+ */
+async function alreadyAlerted(
+  tenantIds: string[],
+  references: string[],
+): Promise<Set<string>> {
+  if (!tenantIds.length || !references.length) return new Set();
+
+  const rows = await db
+    .select({
+      tenantId: schema.planningAlerts.tenantId,
+      reference: schema.planningAlerts.reference,
+    })
+    .from(schema.planningAlerts)
+    .where(
+      and(
+        inArray(schema.planningAlerts.tenantId, tenantIds),
+        inArray(schema.planningAlerts.reference, references),
+      ),
+    );
+
+  return new Set(rows.map((r) => `${r.tenantId}:${r.reference}`));
+}
+
 export async function pollAndMatch(tenantId?: string) {
   const applications = await fetchRecentApplications();
   const subs = tenantId
@@ -111,12 +187,23 @@ export async function pollAndMatch(tenantId?: string) {
         .where(eq(schema.planningSubscriptions.tenantId, tenantId))
     : await db.select().from(schema.planningSubscriptions);
 
-  const alerts = [];
+  const seen = await alreadyAlerted(
+    [...new Set(subs.map((s) => s.tenantId))],
+    applications.map((a) => a.reference),
+  );
+
+  const byTenant = new Map<string, AlertRow[]>();
+  const alerts: AlertRow[] = [];
 
   for (const sub of subs) {
     for (const app of applications) {
+      const key = `${sub.tenantId}:${app.reference}`;
+      if (seen.has(key)) continue;
+
       const distance = Math.round(haversineMetres(sub.lat, sub.lng, app.lat, app.lng));
       if (distance > sub.radiusMetres) continue;
+
+      seen.add(key);
 
       const { summary, signalScore } = await summarisePlanningAlert({
         description: app.description,
@@ -143,6 +230,7 @@ export async function pollAndMatch(tenantId?: string) {
         .returning();
 
       alerts.push(alert);
+      byTenant.set(sub.tenantId, [...(byTenant.get(sub.tenantId) ?? []), alert]);
 
       await logUsage({
         tenantId: sub.tenantId,
@@ -153,7 +241,27 @@ export async function pollAndMatch(tenantId?: string) {
     }
   }
 
-  return { polled: applications.length, alertsGenerated: alerts.length, alerts };
+  const digests: DigestResult[] = [];
+  for (const [id, tenantAlerts] of byTenant) {
+    const digest = await sendPlanningDigest({ tenantId: id, alerts: tenantAlerts });
+    digests.push(digest);
+
+    if (digest.sent) {
+      await logUsage({
+        tenantId: id,
+        vertical: 'planningpulse',
+        action: 'digest_sent',
+        metadata: { alertCount: digest.alertCount, recipient: digest.recipient },
+      });
+    }
+  }
+
+  return {
+    polled: applications.length,
+    alertsGenerated: alerts.length,
+    alerts,
+    digests,
+  };
 }
 
 export async function getAlerts(tenantId: string) {
@@ -162,3 +270,6 @@ export async function getAlerts(tenantId: string) {
     .from(schema.planningAlerts)
     .where(eq(schema.planningAlerts.tenantId, tenantId));
 }
+
+export { renderPlanningDigest, sendPlanningDigest } from './digest.js';
+export type { PlanningDigest, DigestResult, DigestSkipReason } from './digest.js';
