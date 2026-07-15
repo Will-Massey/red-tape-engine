@@ -134,6 +134,79 @@
       transition: width 0.5s ease;
     }
     #status { color: var(--muted); font-size: 0.8rem; }
+    .hero {
+      margin: -2rem -2rem 2rem;
+      padding: 3.5rem 2rem;
+      background:
+        radial-gradient(ellipse 80% 60% at 50% 0%, rgba(0, 212, 170, 0.12) 0%, transparent 70%),
+        linear-gradient(180deg, #0f1520 0%, var(--bg) 100%);
+      border-bottom: 1px solid var(--border);
+      text-align: center;
+    }
+    .hero-eyebrow {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--accent);
+      margin-bottom: 1rem;
+      font-weight: 600;
+    }
+    .hero h2 {
+      font-size: clamp(2rem, 5vw, 3.25rem);
+      font-weight: 700;
+      letter-spacing: -0.04em;
+      line-height: 1.1;
+      margin-bottom: 1rem;
+    }
+    .hero h2 em {
+      font-style: normal;
+      color: var(--danger);
+    }
+    .hero-sub {
+      font-size: 1.1rem;
+      color: var(--muted);
+      max-width: 540px;
+      margin: 0 auto 1.75rem;
+      line-height: 1.6;
+    }
+    .hero-sub strong { color: var(--text); font-weight: 600; }
+    .hero-stats {
+      display: flex;
+      justify-content: center;
+      gap: 2.5rem;
+      flex-wrap: wrap;
+      margin-bottom: 2rem;
+    }
+    .hero-stat .num {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: -0.03em;
+    }
+    .hero-stat .lbl {
+      font-size: 0.75rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-top: 0.15rem;
+    }
+    .hero-cta {
+      display: flex;
+      justify-content: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+    .hero-cta button {
+      padding: 0.65rem 1.4rem;
+      font-size: 0.9rem;
+    }
+    .hero-cta button.primary {
+      background: var(--accent);
+      color: var(--bg);
+      border-color: var(--accent);
+      font-weight: 600;
+    }
+    .hero-cta button.primary:hover { background: #00eabc; }
   </style>
 </head>
 <body>
@@ -146,6 +219,33 @@
   </header>
 
   <main>
+    <section class="hero" id="hero">
+      <div class="hero-eyebrow">TradeTap · Missed Call Recovery</div>
+      <h2>You missed <em id="hero-missed">47</em> calls last month</h2>
+      <p class="hero-sub">
+        Every unanswered ring is a job walking to your competitor.
+        TradeTap sends an <strong>AI-triaged SMS in 60 seconds</strong> and tracks which calls turn into bookings.
+      </p>
+      <div class="hero-stats">
+        <div class="hero-stat">
+          <div class="num" id="hero-recovered">—</div>
+          <div class="lbl">Jobs recovered (7d)</div>
+        </div>
+        <div class="hero-stat">
+          <div class="num" id="hero-revenue">—</div>
+          <div class="lbl">Revenue attributed</div>
+        </div>
+        <div class="hero-stat">
+          <div class="num" id="hero-rate">—</div>
+          <div class="lbl">Recovery rate</div>
+        </div>
+      </div>
+      <div class="hero-cta">
+        <button class="primary" id="hero-simulate" onclick="heroSimulate()">See it recover a call</button>
+        <button class="secondary" onclick="document.getElementById('verticals').scrollIntoView({behavior:'smooth'})">View dashboard</button>
+      </div>
+    </section>
+
     <div class="grid" id="summary-cards"></div>
     <div class="verticals" id="verticals"></div>
 
@@ -172,8 +272,20 @@
       housesignal: { label: 'HouseSignal', price: '£199/mo', color: 'var(--accent2)' },
     };
 
+    function renderHero(tradetap) {
+      if (!tradetap) return;
+      const missed = tradetap.missedCalls ?? 0;
+      const monthlyEstimate = missed > 0 ? Math.round(missed * 4.3) : 47;
+      document.getElementById('hero-missed').textContent = monthlyEstimate;
+      document.getElementById('hero-recovered').textContent = tradetap.recoveredJobs ?? 0;
+      document.getElementById('hero-revenue').textContent = `£${tradetap.attributedRevenueGbp ?? '0.00'}`;
+      document.getElementById('hero-rate').textContent = `${tradetap.recoveryRate ?? 0}%`;
+      document.getElementById('hero-simulate').dataset.tenantId = tradetap.id;
+    }
+
     function renderSummary(tenants) {
       const tradetap = tenants.find(t => t.vertical === 'tradetap');
+      renderHero(tradetap);
       const totalRevenue = tradetap?.attributedRevenueGbp ?? '0.00';
       const recovered = tradetap?.recoveredJobs ?? 0;
       const missed = tradetap?.missedCalls ?? 0;
@@ -276,6 +388,18 @@
       const el = document.getElementById(`report-${tenantId}`);
       el.textContent = text;
       el.classList.add('visible');
+    }
+
+    async function heroSimulate() {
+      const btn = document.getElementById('hero-simulate');
+      const tenantId = btn.dataset.tenantId;
+      if (!tenantId) return;
+      btn.textContent = 'Recovering…';
+      btn.disabled = true;
+      await simulateCall(tenantId);
+      btn.textContent = 'See it recover a call';
+      btn.disabled = false;
+      document.getElementById('verticals').scrollIntoView({ behavior: 'smooth' });
     }
 
     async function simulateCall(tenantId) {
