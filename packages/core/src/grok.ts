@@ -9,7 +9,46 @@ interface GrokMessage {
   content: string;
 }
 
+type GrokVisionContent =
+  | { type: 'text'; text: string }
+  | { type: 'image_url'; image_url: { url: string; detail?: 'low' | 'high' | 'auto' } };
+
+interface GrokVisionMessage {
+  role: 'system' | 'user';
+  content: string | GrokVisionContent[];
+}
+
 async function chat(messages: GrokMessage[], json = false): Promise<string> {
+  if (DEMO_MODE) {
+    return '';
+  }
+
+  const res = await fetch('https://api.x.ai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${XAI_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: XAI_MODEL,
+      messages,
+      temperature: 0.2,
+      ...(json ? { response_format: { type: 'json_object' } } : {}),
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Grok API error ${res.status}: ${body}`);
+  }
+
+  const data = (await res.json()) as {
+    choices: Array<{ message: { content: string } }>;
+  };
+  return data.choices[0]?.message?.content ?? '';
+}
+
+async function chatVision(messages: GrokVisionMessage[], json = false): Promise<string> {
   if (DEMO_MODE) {
     return '';
   }
@@ -146,27 +185,90 @@ Return JSON:
 }`;
 
   if (DEMO_MODE) {
-    return demoExpense(input.rawText);
+    return demoExpense(input.rawText, input.filename);
   }
 
-  const raw = await chat(
-    [
-      { role: 'system', content: 'You are a UK landlord tax categorisation agent. JSON only.' },
-      { role: 'user', content: prompt },
-    ],
-    true,
-  );
+  let raw: string;
+  try {
+    raw = await chat(
+      [
+        { role: 'system', content: 'You are a UK landlord tax categorisation agent. JSON only.' },
+        { role: 'user', content: prompt },
+      ],
+      true,
+    );
+  } catch {
+    return demoExpense(input.rawText, input.filename);
+  }
 
   try {
     return JSON.parse(raw) as CategorisedExpense;
   } catch {
-    return demoExpense(input.rawText);
+    return demoExpense(input.rawText, input.filename);
   }
 }
 
-function demoExpense(rawText: string): CategorisedExpense {
-  const amountMatch = rawText.match(/£?\s*(\d+(?:\.\d{2})?)/);
-  const amount = amountMatch ? Math.round(parseFloat(amountMatch[1]) * 100) : 4500;
+const RECEIPT_JSON_SCHEMA = `{
+  "vendor": string,
+  "amountPence": number,
+  "date": "YYYY-MM-DD",
+  "category": "repairs|utilities|insurance|mortgage_interest|agent_fees|other",
+  "mtdBox": "HMRC box reference",
+  "confidence": 0-1
+}`;
+
+export async function categoriseReceiptFromImage(input: {
+  buffer: Buffer;
+  mimeType: string;
+  filename: string;
+}): Promise<CategorisedExpense> {
+  if (DEMO_MODE) {
+    return demoExpense(`Receipt image ${input.filename}`, input.filename);
+  }
+
+  const dataUri = `data:${input.mimeType};base64,${input.buffer.toString('base64')}`;
+  const prompt =
+    'Read this UK landlord expense receipt image and categorise it for MTD. ' +
+    `Filename: ${input.filename}. Return JSON only: ${RECEIPT_JSON_SCHEMA}`;
+
+  let raw: string;
+  try {
+    raw = await chatVision(
+      [
+        { role: 'system', content: 'You are a UK landlord tax categorisation agent. JSON only.' },
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: prompt },
+            { type: 'image_url', image_url: { url: dataUri, detail: 'high' } },
+          ],
+        },
+      ],
+      true,
+    );
+  } catch {
+    return demoExpense(`Receipt image ${input.filename}`, input.filename);
+  }
+
+  try {
+    return JSON.parse(raw) as CategorisedExpense;
+  } catch {
+    return demoExpense(`Receipt image ${input.filename}`, input.filename);
+  }
+}
+
+function parseDemoAmountPence(rawText: string): number {
+  const pound = rawText.match(/£\s*(\d+(?:\.\d{2})?)/);
+  if (pound) return Math.round(parseFloat(pound[1]) * 100);
+
+  const labelled = rawText.match(/(?:total|amount|due)\s*:?\s*£?\s*(\d+(?:\.\d{2})?)/i);
+  if (labelled) return Math.round(parseFloat(labelled[1]) * 100);
+
+  return 4500;
+}
+
+function demoExpense(rawText: string, filename?: string): CategorisedExpense {
+  const amount = parseDemoAmountPence(rawText);
   const lower = rawText.toLowerCase();
 
   let category: CategorisedExpense['category'] = 'other';
@@ -182,10 +284,12 @@ function demoExpense(rawText: string): CategorisedExpense {
     mtdBox = 'Box 24';
   }
 
+  const dateMatch = rawText.match(/\b(20\d{2}-\d{2}-\d{2})\b/);
+
   return {
-    vendor: 'Demo Vendor Ltd',
+    vendor: filename?.replace(/\.[^.]+$/, '') || 'Demo Vendor Ltd',
     amountPence: amount,
-    date: new Date().toISOString().slice(0, 10),
+    date: dateMatch?.[1] ?? new Date().toISOString().slice(0, 10),
     category,
     mtdBox,
     confidence: 0.85,

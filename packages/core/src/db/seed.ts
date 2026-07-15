@@ -34,7 +34,10 @@ async function main() {
       name: 'Northbuild Developments',
       vertical: 'planningpulse',
       plan: 'pro',
-      config: { focus: 'residential' },
+      config: {
+        focus: 'residential',
+        digestEmail: process.env.PLANNINGPULSE_DIGEST_EMAIL ?? 'alerts@northbuild.example',
+      },
     },
     {
       name: 'Agile Home UK',

@@ -1,6 +1,6 @@
 # Agent Spawn Briefs
 
-Three concurrent agents. Do not cross file boundaries without merging to main first.
+Three concurrent agents. **Use git worktrees** — never share one working tree across agents (`apps/api/src/index.ts` is last-writer-wins). Do not cross file boundaries without merging to main first.
 
 ## Grok Heavy — Conductor
 - Owns: `CONTRACTS.md`, integration review, `.env` setup, sales copy

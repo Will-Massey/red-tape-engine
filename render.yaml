@@ -30,3 +30,7 @@ services:
         sync: false
       - key: CALCOM_WEBHOOK_SECRET
         sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM
+        sync: false

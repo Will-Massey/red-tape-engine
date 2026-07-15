@@ -127,7 +127,29 @@ interface CategorisedExpense {
 }
 ```
 
+Image receipts: `categoriseReceiptFromImage({ buffer, mimeType, filename })` in `@rte/core` (Grok vision). Text receipts: `categoriseReceipt({ rawText, filename })`. No second OCR path.
+
 ## PlanningPulse
+
+### Tenant config (vertical: 'planningpulse')
+```ts
+interface PlanningPulseConfig {
+  digestEmail: string;  // Resend recipient for alert digests
+  focus?: string;
+}
+```
+
+### Email digest (`@rte/core` → `sendEmail`)
+```ts
+interface EmailMessage {
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+}
+```
+
+`sendEmail()` in `@rte/core` — demo logs to console when `RESEND_API_KEY` unset or `DEMO_MODE=true`.
 
 ### PlanningApplication
 ```ts
