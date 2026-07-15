@@ -334,7 +334,14 @@ app.post('/api/planningpulse/subscribe', async (req) => {
   return createSubscription({ tenantId, name, lat, lng, radiusMetres });
 });
 
-app.post('/api/planningpulse/poll', async (req) => {
+app.post('/api/planningpulse/poll', async (req, reply) => {
+  const cronSecret = process.env.PLANNINGPULSE_CRON_SECRET;
+  if (cronSecret) {
+    const auth = req.headers.authorization ?? '';
+    if (auth !== `Bearer ${cronSecret}`) {
+      return reply.status(401).send({ error: 'unauthorised' });
+    }
+  }
   const { tenantId } = (req.body as { tenantId?: string }) ?? {};
   return pollAndMatch(tenantId);
 });
