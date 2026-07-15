@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
+import { backfillTenantConfigs } from './backfill.js';
 
 config({ path: resolve(dirname(fileURLToPath(import.meta.url)), '../../../../.env') });
 
@@ -14,6 +15,7 @@ async function main() {
   const client = postgres(connectionString, { max: 1 });
   const db = drizzle(client);
   await migrate(db, { migrationsFolder: './drizzle' });
+  await backfillTenantConfigs();
   await client.end();
   console.log('Migrations complete');
 }
