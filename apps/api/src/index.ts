@@ -8,6 +8,7 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import formbody from '@fastify/formbody';
 import fastifyStatic from '@fastify/static';
+import multipart from '@fastify/multipart';
 import { join } from 'node:path';
 import {
   db,
@@ -31,9 +32,17 @@ import {
   weeklyReportFilename,
   getTenant,
 } from '@rte/tradetap';
-import { processReceipt, getExpenses, generateMtdExportPack } from '@rte/complybot';
+import {
+  processReceipt,
+  processReceiptUpload,
+  getExpenses,
+  generateMtdExportPack,
+  ReceiptRejected,
+  MAX_RECEIPT_BYTES,
+} from '@rte/complybot';
 import { createSubscription, pollAndMatch, getAlerts } from '@rte/planningpulse';
-import { getCheapSlots } from '@rte/agilepilot';
+import { startDailyPoller } from '@rte/planningpulse/scheduler';
+import { getCheapSlots, getSlotHistory } from '@rte/agilepilot';
 import { scanCompanies, getSignals } from '@rte/housesignal';
 import { eq } from 'drizzle-orm';
 
@@ -43,6 +52,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const app = Fastify({ logger: true });
 await app.register(cors, { origin: true });
 await app.register(formbody);
+await app.register(multipart, { limits: { fileSize: MAX_RECEIPT_BYTES, files: 1 } });
 
 // Stripe and Cal.com sign the raw bytes, so re-serialising the parsed body
 // (JSON.stringify) breaks signature checks. Keep the original buffer around.
@@ -235,7 +245,54 @@ app.post('/api/tradetap/simulate', async (req) => {
 
 // ─── ComplyBot ──────────────────────────────────────────────
 
-app.post('/api/complybot/receipt', async (req) => {
+app.post('/api/complybot/receipt', async (req, reply) => {
+  // multipart → a real file upload; JSON { rawText } stays supported.
+  if (req.isMultipart()) {
+    let tenantId = (req.query as Record<string, string>).tenantId;
+    let filename: string | undefined;
+    let mimeType: string | undefined;
+    let buffer: Buffer | undefined;
+
+    try {
+      // Iterate parts rather than req.file(): fields only reach us if they
+      // arrive before the file, and clients order them however they like.
+      for await (const part of req.parts()) {
+        if (part.type === 'file') {
+          buffer = await part.toBuffer();
+          filename = part.filename;
+          mimeType = part.mimetype;
+        } else if (part.fieldname === 'tenantId' && typeof part.value === 'string') {
+          tenantId = part.value;
+        }
+      }
+    } catch (err) {
+      if ((err as { code?: string }).code === 'FST_REQ_FILE_TOO_LARGE') {
+        return reply.status(413).send({
+          error: `Receipt exceeds ${MAX_RECEIPT_BYTES / 1024 / 1024}MB.`,
+          reason: 'file_too_large',
+        });
+      }
+      throw err;
+    }
+
+    if (!tenantId) return reply.status(400).send({ error: 'tenantId required', reason: 'missing_tenant' });
+    if (!buffer) return reply.status(400).send({ error: 'file field required', reason: 'missing_file' });
+
+    try {
+      return await processReceiptUpload({
+        tenantId,
+        filename: filename ?? 'receipt',
+        mimeType: mimeType ?? 'application/octet-stream',
+        buffer,
+      });
+    } catch (err) {
+      if (err instanceof ReceiptRejected) {
+        return reply.status(err.statusCode).send({ error: err.message, reason: err.reason });
+      }
+      throw err;
+    }
+  }
+
   const { tenantId, filename, rawText } = req.body as {
     tenantId: string;
     filename?: string;
@@ -289,8 +346,18 @@ app.get('/api/planningpulse/alerts/:tenantId', async (req) => {
 // ─── AgilePilot ─────────────────────────────────────────────
 
 app.get('/api/agilepilot/slots', async (req) => {
-  const { tenantId, region } = req.query as { tenantId?: string; region?: string };
-  return getCheapSlots({ tenantId, region });
+  const { tenantId, region, history } = req.query as {
+    tenantId?: string;
+    region?: string;
+    history?: string;
+  };
+  return getCheapSlots({ tenantId, region, includeHistory: history === 'true' });
+});
+
+app.get('/api/agilepilot/history/:tenantId', async (req) => {
+  const { tenantId } = req.params as { tenantId: string };
+  const { days } = req.query as { days?: string };
+  return getSlotHistory(tenantId, { days: days ? Number(days) : undefined });
 });
 
 // ─── HouseSignal ────────────────────────────────────────────
@@ -453,6 +520,29 @@ app.setNotFoundHandler(async (req, reply) => {
 try {
   await app.listen({ port: PORT, host: '0.0.0.0' });
   console.log(`Red Tape Engine → http://localhost:${PORT}`);
+
+  // In-process cron only fires while this process is alive. On Render's free
+  // plan the service sleeps when idle, so a missed 6am run needs either a paid
+  // instance, a Render Cron Job, or an external ping to POST /api/planningpulse/poll.
+  if (process.env.PLANNINGPULSE_POLL_ENABLED !== 'false') {
+    const poller = startDailyPoller({
+      onResult: (result) =>
+        app.log.info(
+          { polled: result.polled, alerts: result.alertsGenerated, digests: result.digests },
+          'PlanningPulse daily poll complete',
+        ),
+      onError: (error) => app.log.error({ error }, 'PlanningPulse daily poll failed'),
+    });
+
+    app.log.info(
+      {
+        expression: poller.expression,
+        timezone: poller.timezone,
+        nextRun: poller.nextRun?.toISOString(),
+      },
+      'PlanningPulse poller scheduled',
+    );
+  }
 } catch (err) {
   app.log.error(err);
   process.exit(1);

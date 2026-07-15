@@ -3,6 +3,14 @@ import { db, schema, categoriseReceipt, logUsage } from '@rte/core';
 
 type ExpenseRow = typeof schema.expenses.$inferSelect;
 
+export {
+  processReceiptUpload,
+  isSupportedReceiptMime,
+  ReceiptRejected,
+  MAX_RECEIPT_BYTES,
+} from './upload.js';
+export type { ReceiptUpload } from './upload.js';
+
 export async function processReceipt(input: {
   tenantId: string;
   filename: string;

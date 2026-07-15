@@ -115,6 +115,15 @@ interface ReceiptUpload {
 }
 ```
 
+`POST /api/complybot/receipt` accepts either `multipart/form-data`
+(`tenantId` field + file part, any order) or JSON `{ tenantId, rawText }`.
+Accepts `text/plain`, `text/csv` and image mime types; max 10MB.
+
+**Open:** image receipts cannot be read. `categoriseReceipt()` in `@rte/core`
+takes `{ rawText, filename }` and has no image/vision parameter, so images are
+served by the demo stub in demo mode and rejected `501 ocr_unavailable` when
+demo mode is off. Needs a core vision path — conductor's call.
+
 ### CategorisedExpense (Grok output)
 ```ts
 interface CategorisedExpense {
@@ -220,6 +229,7 @@ interface CompanySignal {
 | POST | /api/planningpulse/poll | planningpulse |
 | GET | /api/planningpulse/alerts/:tenantId | planningpulse |
 | GET | /api/agilepilot/slots | agilepilot |
+| GET | /api/agilepilot/history/:tenantId | agilepilot |
 | POST | /api/housesignal/scan | housesignal |
 | GET | /api/housesignal/signals | housesignal |
 | GET | /api/dashboard/overview | core |

@@ -1,5 +1,13 @@
 import { logUsage } from '@rte/core';
 import type { CheapSlot } from '@rte/core';
+import {
+  SLOTS_FETCHED,
+  averagePence,
+  baselinePence,
+  getSlotHistory,
+  savingsPenceFor,
+  shiftableKwh,
+} from './history.js';
 
 const OCTOPUS_API = 'https://api.octopus.energy/v1/products';
 
@@ -62,27 +70,58 @@ function demoSlots(): CheapSlot[] {
   });
 }
 
-export async function getCheapSlots(input?: { tenantId?: string; region?: string }) {
-  const slots = await fetchAgileRates(input?.region ?? 'C');
+export async function getCheapSlots(input?: {
+  tenantId?: string;
+  region?: string;
+  includeHistory?: boolean;
+}) {
+  const region = input?.region ?? 'C';
+  const slots = await fetchAgileRates(region);
+
+  // fetchAgileRates sorts ascending by price, so the first slot is the cheapest.
+  const cheapest = slots[0];
+  const avg = averagePence(slots);
+  const savingsPence = cheapest ? savingsPenceFor(cheapest.pricePencePerKwh) : 0;
 
   if (input?.tenantId) {
     await logUsage({
       tenantId: input.tenantId,
       vertical: 'agilepilot',
-      action: 'slots_fetched',
-      metadata: { count: slots.length, cheapest: slots[0]?.pricePencePerKwh },
+      action: SLOTS_FETCHED,
+      metadata: {
+        count: slots.length,
+        cheapest: cheapest?.pricePencePerKwh,
+        avg,
+        region,
+        savingsPence,
+        baselinePence: baselinePence(),
+        shiftableKwh: shiftableKwh(),
+      },
     });
   }
 
-  const cheapest = slots[0];
-  const savingsEstimate = cheapest && cheapest.pricePencePerKwh < 10
-    ? `Est. £${((15 - cheapest.pricePencePerKwh) * 0.5).toFixed(2)} saved per 0.5kWh cycle`
-    : 'No exceptional savings window right now';
+  // Derived from savingsPence so there is a single savings model. The previous
+  // form computed pence and printed them behind a "£", overstating savings 100x.
+  const savingsEstimate =
+    cheapest && savingsPence > 0
+      ? `Est. £${(savingsPence / 100).toFixed(2)} saved shifting ${shiftableKwh()}kWh ` +
+        `vs a ${baselinePence()}p/kWh flat rate`
+      : 'No exceptional savings window right now';
+
+  // Read history after logging so today's fetch is included.
+  const history =
+    input?.tenantId && input.includeHistory ? await getSlotHistory(input.tenantId) : undefined;
 
   return {
     slots,
     cheapest,
+    avg,
+    savingsPence,
     savingsEstimate,
+    ...(history ? { history } : {}),
     affiliateNote: 'Switch to Octopus Agile — affiliate £50-100 per referral',
   };
 }
+
+export { getSlotHistory } from './history.js';
+export type { SlotHistory, SlotHistoryEntry } from './history.js';
