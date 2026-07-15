@@ -197,13 +197,15 @@ Return JSON:
       ],
       true,
     );
-  } catch {
+  } catch (err) {
+    if (!DEMO_MODE) throw err;
     return demoExpense(input.rawText, input.filename);
   }
 
   try {
     return JSON.parse(raw) as CategorisedExpense;
-  } catch {
+  } catch (err) {
+    if (!DEMO_MODE) throw err;
     return demoExpense(input.rawText, input.filename);
   }
 }
@@ -246,13 +248,15 @@ export async function categoriseReceiptFromImage(input: {
       ],
       true,
     );
-  } catch {
+  } catch (err) {
+    if (!DEMO_MODE) throw err;
     return demoExpense(`Receipt image ${input.filename}`, input.filename);
   }
 
   try {
     return JSON.parse(raw) as CategorisedExpense;
-  } catch {
+  } catch (err) {
+    if (!DEMO_MODE) throw err;
     return demoExpense(`Receipt image ${input.filename}`, input.filename);
   }
 }

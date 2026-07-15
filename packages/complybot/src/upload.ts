@@ -96,16 +96,24 @@ export async function processReceiptUpload(input: ReceiptUpload) {
   const rawText = extractText(input.buffer, mime);
 
   if (rawText === null) {
-    const result = await categoriseImageUpload(input);
-    return {
-      ...result,
-      upload: {
-        filename: input.filename,
-        mimeType: mime,
-        bytes: input.buffer.length,
-        textSource: isDemoMode() ? ('demo_stub' as const) : ('vision' as const),
-      },
-    };
+    try {
+      const result = await categoriseImageUpload(input);
+      return {
+        ...result,
+        upload: {
+          filename: input.filename,
+          mimeType: mime,
+          bytes: input.buffer.length,
+          textSource: isDemoMode() ? ('demo_stub' as const) : ('vision' as const),
+        },
+      };
+    } catch {
+      throw new ReceiptRejected(
+        502,
+        'receipt_unreadable',
+        'Could not read receipt image. Please re-shoot the photo with better lighting.',
+      );
+    }
   }
 
   const { processReceipt } = await import('./index.js');

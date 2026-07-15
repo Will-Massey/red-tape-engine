@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts",
-    "db:seed": "tsx src/db/seed.ts"
+    "db:seed": "tsx src/db/seed.ts",
+    "test:receipt-vision": "tsx scripts/receipt-vision.test.mts"
   },
   "dependencies": {
     "dotenv": "^17.4.2",

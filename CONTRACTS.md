@@ -138,6 +138,8 @@ interface CategorisedExpense {
 
 Image receipts: `categoriseReceiptFromImage({ buffer, mimeType, filename })` in `@rte/core` (Grok vision). Text receipts: `categoriseReceipt({ rawText, filename })`. No second OCR path.
 
+**Live-mode rule:** vision/API/parse failures **throw** — never `demoExpense()`. Upload maps to `502 receipt_unreadable`. Demo mode may stub for sales demos only.
+
 ## PlanningPulse
 
 ### Tenant config (vertical: 'planningpulse')
