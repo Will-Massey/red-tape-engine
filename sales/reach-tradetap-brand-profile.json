@@ -1,0 +1,40 @@
+{
+  "name": "TradeTap",
+  "productSummary": "TradeTap is a UK missed-call recovery service for trades businesses (plumbers, electricians, builders). When a customer calls and nobody picks up, it sends an intelligent SMS within 60 seconds — triaged by urgency (emergency vs quote vs callback) — includes their booking link, and tracks recovered jobs plus attributed revenue in a weekly report. White-label partner programme available for accountants: £99/mo retail, £50/mo partner margin.",
+  "icp": "Partners and managers at UK accountancy practices (2–50 staff) with trade/SME clients (plumbers, electricians, builders) who complain about missed calls and lost leads. Secondary ICP: owner-operators of UK plumbing/HVAC/electrical firms with 1–20 staff who miss calls while on site.",
+  "toneOfVoice": "Plain-spoken, revenue-focused, peer-to-peer. One accountant recommending a tool to another. No AI hype — talk recovered jobs and pounds, not 'intelligent triage'. UK English.",
+  "proofPoints": [
+    {
+      "claim": "Trades typically miss 30–50 inbound calls per month while on jobs",
+      "evidence": "Industry surveys / trade association data"
+    },
+    {
+      "claim": "Live demo at red-tape-engine.onrender.com — Simulate Call shows full pipeline in 10 seconds",
+      "link": "https://red-tape-engine.onrender.com"
+    },
+    {
+      "claim": "White-label: £99/mo retail, £50/mo partner margin, fully invisible to end client",
+      "evidence": "partner programme"
+    },
+    {
+      "claim": "Built by Capstone Software Solutions Ltd, a UK company",
+      "evidence": ""
+    }
+  ],
+  "links": {
+    "website": "https://red-tape-engine.onrender.com",
+    "demo": "https://red-tape-engine.onrender.com",
+    "partner_info": "https://red-tape-engine.onrender.com"
+  },
+  "senderName": "Will Massey",
+  "physicalAddress": "Capstone Software Solutions Ltd, 17 Cottesbrooke Park, Daventry, NN11 8YL, UK",
+  "bookingLink": "https://cal.com/will-massey",
+  "defaultConsentBasis": "legitimate interest",
+  "liaNote": "Legitimate interest: relevant B2B offer (missed-call recovery for trade clients) to corporate subscribers in accountancy roles; minimal data (work contact details); easy opt-out honoured immediately; volumes conservative.",
+  "exampleEmails": [
+    {
+      "subject": "Your plumber clients are losing jobs while they're on site",
+      "body": "See sales/accountant-tradetap-outreach.md — Email body (Touch 1)"
+    }
+  ]
+}

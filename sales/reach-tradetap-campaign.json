@@ -1,0 +1,79 @@
+{
+  "campaign": {
+    "name": "TradeTap — Accountant white-label (Touch 1→3)",
+    "lane": "cold",
+    "timezone": "Europe/London",
+    "sendWindow": { "days": [1, 2, 3, 4, 5], "start": "09:00", "end": "17:30" },
+    "openTrackingEnabled": false,
+    "clickTrackingEnabled": false,
+    "consentBasis": "legitimate interest",
+    "liaNote": "Legitimate interest: B2B offer to UK accountancy practices re trade-client missed-call recovery; minimal work contact data; immediate opt-out.",
+    "stopOnReply": true,
+    "autoWinnerEnabled": true,
+    "mailboxIds": ["ATTACH_LIVE_MAILBOX_UUID_FROM_REACH_SETTINGS"]
+  },
+  "steps": [
+    {
+      "order": 1,
+      "delayDays": 0,
+      "variants": [
+        {
+          "label": "A",
+          "subject": "your plumber clients are losing jobs while they're on site",
+          "weight": 34,
+          "body": "Hi {{firstName|there}},\n\nQuick question: do any of your trade clients complain they're \"too busy on jobs to answer the phone\" — then wonder why leads dry up?\n\nWe built TradeTap for exactly that. When a customer calls and nobody picks up:\n\n1. Captures the missed call (via their existing business number)\n2. Sends an intelligent SMS within 60 seconds — triaged by urgency\n3. Includes their booking link so the caller can self-serve\n4. Tracks recovered jobs and attributed revenue in a weekly report\n\nWhite-label partner programme: £99/mo retail, £50/mo to you. 20 clients = £1,000/mo recurring.\n\n15-minute demo? Reply \"demo\" and I'll send a Cal link.\n\nWill"
+        },
+        {
+          "label": "B",
+          "subject": "£50/mo per client — white-label missed-call recovery",
+          "weight": 33,
+          "body": "Hi {{firstName|there}},\n\nIf {{company}} has trade clients (plumbers, electricians, builders), they're probably missing 30–50 calls a month while on site.\n\nTradeTap recovers those automatically — SMS within 60 seconds, booking link included, weekly revenue report.\n\nPartner programme: you bill £99/mo, keep £50/mo, we stay invisible.\n\nWorth a 15-min demo? Reply \"demo\".\n\nWill"
+        },
+        {
+          "label": "C",
+          "subject": "47 missed calls last month. how many became jobs?",
+          "weight": 33,
+          "body": "Hi {{firstName|there}},\n\nClients don't buy \"AI SMS triage\". They buy: \"You missed 47 calls last month. We recovered 12 jobs worth £1,840.\"\n\nThat's the weekly report TradeTap sends your trade clients. White-label available for practices like {{company}} — £50/mo margin per client.\n\nLive demo: https://red-tape-engine.onrender.com (click Simulate Call).\n\nReply \"demo\" if useful.\n\nWill"
+        }
+      ]
+    },
+    {
+      "order": 2,
+      "delayDays": 3,
+      "variants": [
+        {
+          "label": "A",
+          "subject": "",
+          "weight": 100,
+          "body": "Hi {{firstName|there}},\n\nFollowing up on TradeTap — one thing accountants tell us resonates with trade clients:\n\n\"You missed 47 calls last month. We recovered 12 jobs worth £1,840.\"\n\nThat line comes straight from the weekly report. Clients don't buy software — they buy recovered revenue on paper.\n\nStill happy to do a 15-min demo. Reply \"demo\" or \"not now\".\n\nWill"
+        }
+      ]
+    },
+    {
+      "order": 3,
+      "delayDays": 4,
+      "variants": [
+        {
+          "label": "A",
+          "subject": "",
+          "weight": 100,
+          "body": "Hi {{firstName|there}},\n\nLast note on the TradeTap partner programme — if missed-call recovery isn't a fit for your client base right now, no worries.\n\nIf you have even one plumber or electrician who mentions losing leads, the offer stands: £99/mo retail, £50/mo to you, fully white-label.\n\nDoor's open — just reply.\n\nWill"
+        }
+      ]
+    }
+  ],
+  "prospecting": {
+    "sicCodes": ["69201", "69202", "69203"],
+    "note": "Accountancy activities. For direct trades outreach use 43220 (plumbing), 43210 (electrical).",
+    "personalise": true,
+    "icpFilter": "Reject law firms, recruiters, mortgage brokers. Keep UK accountancy practices."
+  },
+  "importInstructions": [
+    "1. POST brand profile: POST /api/brand-profiles with reach-tradetap-brand-profile.json body",
+    "2. POST campaign: POST /api/campaigns with campaign object + brandProfileId from step 1",
+    "3. PUT steps: PUT /api/campaigns/:id/steps with { steps: [...] } from this file",
+    "4. Prospecting: Reach UI → Prospecting → SIC 69201 + UK → import → enrol in campaign",
+    "5. Attach live mailbox (william@get-capstone.co.uk) before launch",
+    "6. Dry-run in SEND_MODE=sandbox first, then live when warmup allows"
+  ]
+}
