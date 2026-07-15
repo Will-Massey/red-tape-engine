@@ -99,6 +99,37 @@ Prospect replies "demo" to TradeTap email (Reach)
     → pipeline stage: meeting + prep task created
 ```
 
+## 6. Stripe (RTE production)
+
+Webhook endpoint for Render:
+
+```
+https://red-tape-engine.onrender.com/webhooks/stripe
+```
+
+Events: `checkout.session.completed`, `customer.subscription.deleted`
+
+Re-create prices if needed:
+
+```bash
+STRIPE_SECRET_KEY=sk_test_... node scripts/setup-stripe-products.mjs
+```
+
+## 7. PlanningPulse cron
+
+Render cron job `rte-planningpulse-daily` hits `POST /api/planningpulse/poll` at 06:00 UTC
+with `PLANNINGPULSE_CRON_SECRET`. In-process poller is disabled on Render (`PLANNINGPULSE_POLL_ENABLED=false`).
+
+## 8. Accountant outreach batch
+
+```bash
+# Log into Reach → copy token from /api/auth/login response
+REACH_API_TOKEN=eyJ... node scripts/launch-tradetap-outreach.mjs
+REACH_API_TOKEN=eyJ... node scripts/launch-tradetap-outreach.mjs --launch  # after mailboxes attached
+```
+
+Lead CSV: `sales/accountant-leads-starter.csv` (30 UK firms — verify before live send).
+
 ## Contracts
 
 Full payload shapes: `WEBHOOK_CONTRACTS.md`
