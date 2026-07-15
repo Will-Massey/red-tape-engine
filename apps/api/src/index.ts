@@ -9,12 +9,27 @@ import cors from '@fastify/cors';
 import formbody from '@fastify/formbody';
 import fastifyStatic from '@fastify/static';
 import { join } from 'node:path';
-import { db, schema, createCheckoutSession, handleStripeWebhook, isDemoMode } from '@rte/core';
+import {
+  db,
+  schema,
+  createCheckoutSession,
+  handleStripeWebhook,
+  isDemoMode,
+  logUsage,
+  validateTwilioSignature,
+  isTwilioSignatureRequired,
+} from '@rte/core';
 import {
   handleMissedCallWebhook,
   handleCalcomWebhook,
+  handleCalcomEvent,
+  verifyCalcomSignature,
+  resolveTenantByTwilioNumber,
   getTradeTapStats,
   generateWeeklyReport,
+  generateWeeklyReportPdf,
+  weeklyReportFilename,
+  getTenant,
 } from '@rte/tradetap';
 import { processReceipt, getExpenses, generateMtdExportPack } from '@rte/complybot';
 import { createSubscription, pollAndMatch, getAlerts } from '@rte/planningpulse';
@@ -29,10 +44,47 @@ const app = Fastify({ logger: true });
 await app.register(cors, { origin: true });
 await app.register(formbody);
 
+// Stripe and Cal.com sign the raw bytes, so re-serialising the parsed body
+// (JSON.stringify) breaks signature checks. Keep the original buffer around.
+declare module 'fastify' {
+  interface FastifyRequest {
+    rawBody?: Buffer;
+  }
+}
+
+app.addContentTypeParser('application/json', { parseAs: 'buffer' }, (req, body, done) => {
+  const buf = body as Buffer;
+  req.rawBody = buf;
+  try {
+    done(null, buf.length ? JSON.parse(buf.toString('utf8')) : {});
+  } catch (err) {
+    (err as Error & { statusCode?: number }).statusCode = 400;
+    done(err as Error, undefined);
+  }
+});
+
+/**
+ * Twilio signs the exact URL it requested. Behind Render's proxy the incoming
+ * protocol is http, so trust the forwarded headers (or an explicit override).
+ */
+function twilioRequestUrl(req: {
+  headers: Record<string, unknown>;
+  url: string;
+  protocol: string;
+}): string {
+  const override = process.env.TWILIO_WEBHOOK_BASE_URL;
+  if (override) return `${override.replace(/\/$/, '')}${req.url}`;
+
+  const proto = String(req.headers['x-forwarded-proto'] ?? req.protocol).split(',')[0].trim();
+  const host = String(req.headers['x-forwarded-host'] ?? req.headers.host ?? '').split(',')[0].trim();
+  return `${proto}://${host}${req.url}`;
+}
+
 app.get('/health', async () => ({
   ok: true,
   service: 'red-tape-engine',
   demoMode: isDemoMode(),
+  twilioSignatureEnforced: isTwilioSignatureRequired(),
   verticals: ['tradetap', 'complybot', 'planningpulse', 'agilepilot', 'housesignal'],
   timestamp: new Date().toISOString(),
 }));
@@ -40,11 +92,28 @@ app.get('/health', async () => ({
 // ─── TradeTap ───────────────────────────────────────────────
 
 app.post('/webhooks/twilio/voice', async (req, reply) => {
-  const body = req.body as Record<string, string>;
-  const tenantId = (req.query as Record<string, string>).tenantId;
+  const body = (req.body ?? {}) as Record<string, string>;
+
+  if (
+    !validateTwilioSignature({
+      signature: req.headers['x-twilio-signature'] as string | undefined,
+      url: twilioRequestUrl(req),
+      params: body,
+    })
+  ) {
+    return reply.status(403).send({ error: 'Invalid Twilio signature' });
+  }
+
+  // Prefer mapping the dialled number to its tenant; the query param is a
+  // fallback for demo/manual calls where no number is provisioned yet.
+  const mapped = body.To ? await resolveTenantByTwilioNumber(body.To) : null;
+  const tenantId = mapped?.id ?? (req.query as Record<string, string>).tenantId;
 
   if (!tenantId) {
-    return reply.status(400).send({ error: 'tenantId query param required' });
+    return reply.status(400).send({
+      error: 'Unknown Twilio number',
+      message: `No tradetap tenant has config.twilioNumber matching ${body.To ?? '(missing To)'}, and no tenantId query param was supplied.`,
+    });
   }
 
   const result = await handleMissedCallWebhook({
@@ -58,21 +127,67 @@ app.post('/webhooks/twilio/voice', async (req, reply) => {
   reply.type('text/xml').send(result.twiml);
 });
 
-app.post('/webhooks/twilio/sms', async (req) => {
-  const body = req.body as Record<string, string>;
-  return { received: true, from: body.From, body: body.Body };
+app.post('/webhooks/twilio/sms', async (req, reply) => {
+  const body = (req.body ?? {}) as Record<string, string>;
+
+  if (
+    !validateTwilioSignature({
+      signature: req.headers['x-twilio-signature'] as string | undefined,
+      url: twilioRequestUrl(req),
+      params: body,
+    })
+  ) {
+    return reply.status(403).send({ error: 'Invalid Twilio signature' });
+  }
+
+  const mapped = body.To ? await resolveTenantByTwilioNumber(body.To) : null;
+  if (mapped) {
+    await logUsage({
+      tenantId: mapped.id,
+      vertical: 'tradetap',
+      action: 'sms_received',
+      metadata: { from: body.From, body: body.Body, messageSid: body.MessageSid },
+    });
+  }
+
+  // Twilio expects TwiML; an empty Response means "no auto-reply".
+  reply.type('text/xml').send('<?xml version="1.0" encoding="UTF-8"?><Response/>');
+  return reply;
 });
 
-app.post('/webhooks/calcom', async (req) => {
-  const body = req.body as Record<string, string>;
-  const tenantId = body.tenantId ?? (req.query as Record<string, string>).tenantId;
-  if (!tenantId) return { error: 'tenantId required' };
+app.post('/webhooks/calcom', async (req, reply) => {
+  const rawBody = req.rawBody ?? Buffer.from(JSON.stringify(req.body ?? {}), 'utf-8');
 
-  return handleCalcomWebhook({
-    tenantId,
-    phone: body.phone ?? body.attendeePhone ?? '+447000000000',
-    callSid: body.callSid,
-  });
+  if (!verifyCalcomSignature(rawBody, req.headers['x-cal-signature-256'] as string | undefined)) {
+    return reply.status(403).send({ error: 'Invalid Cal.com signature' });
+  }
+
+  const query = req.query as Record<string, string>;
+  const result = await handleCalcomEvent({ body: req.body, tenantIdFallback: query.tenantId });
+
+  // Legacy flat shape ({ tenantId, phone }) used by manual/demo calls.
+  if (!result.ok && result.reason === 'unparseable_payload') {
+    const body = (req.body ?? {}) as Record<string, string>;
+    const tenantId = body.tenantId ?? query.tenantId;
+    if (tenantId && (body.phone || body.attendeePhone)) {
+      return handleCalcomWebhook({
+        tenantId,
+        phone: body.phone ?? body.attendeePhone,
+        callSid: body.callSid,
+      });
+    }
+    return reply.status(400).send(result);
+  }
+
+  if (!result.ok && result.reason === 'no_tenant') {
+    return reply.status(400).send({
+      ...result,
+      message:
+        'No tenant on the booking. Add ?tenantId= to the Cal.com webhook URL or set metadata.tenantId on the booking.',
+    });
+  }
+
+  return result;
 });
 
 app.get('/api/tradetap/stats/:tenantId', async (req) => {
@@ -82,6 +197,22 @@ app.get('/api/tradetap/stats/:tenantId', async (req) => {
 
 app.get('/api/tradetap/report/:tenantId', async (req, reply) => {
   const { tenantId } = req.params as { tenantId: string };
+  const { format } = req.query as { format?: string };
+
+  if (format === 'pdf') {
+    const tenant = await getTenant(tenantId);
+    if (!tenant) return reply.status(404).send({ error: 'Tenant not found' });
+
+    const pdf = await generateWeeklyReportPdf(tenantId);
+    return reply
+      .type('application/pdf')
+      .header(
+        'Content-Disposition',
+        `attachment; filename="${weeklyReportFilename(tenant.name)}"`,
+      )
+      .send(pdf);
+  }
+
   const report = await generateWeeklyReport(tenantId);
   reply.type('text/plain').send(report);
 });
@@ -178,8 +309,15 @@ app.get('/api/housesignal/signals', async (req) => {
 
 app.post('/webhooks/stripe', async (req, reply) => {
   const sig = req.headers['stripe-signature'] as string;
-  const result = await handleStripeWebhook(JSON.stringify(req.body), sig);
-  return result;
+  // Must be the raw bytes — Stripe's signature is over the exact payload.
+  const payload = req.rawBody ?? Buffer.from(JSON.stringify(req.body ?? {}), 'utf-8');
+
+  try {
+    return await handleStripeWebhook(payload, sig);
+  } catch (err) {
+    req.log.error({ err }, 'Stripe webhook verification failed');
+    return reply.status(400).send({ error: (err as Error).message });
+  }
 });
 
 app.post('/api/checkout', async (req) => {
@@ -266,6 +404,22 @@ app.get('/api/proxy/tradetap/:tenantId/stats', async (req) => {
 
 app.get('/api/proxy/tradetap/:tenantId/report', async (req, reply) => {
   const { tenantId } = req.params as { tenantId: string };
+  const { format } = req.query as { format?: string };
+
+  if (format === 'pdf') {
+    const tenant = await getTenant(tenantId);
+    if (!tenant) return reply.status(404).send({ error: 'Tenant not found' });
+
+    const pdf = await generateWeeklyReportPdf(tenantId);
+    return reply
+      .type('application/pdf')
+      .header(
+        'Content-Disposition',
+        `attachment; filename="${weeklyReportFilename(tenant.name)}"`,
+      )
+      .send(pdf);
+  }
+
   const report = await generateWeeklyReport(tenantId);
   reply.type('text/plain').send(report);
 });

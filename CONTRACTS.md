@@ -68,6 +68,41 @@ interface BookingCreated {
 
 **Recovery rule:** SMS reply → booking within 72h = recovered job.
 
+### Tenant config (vertical: 'tradetap')
+```ts
+interface TradeTapConfig {
+  tradeType: string;          // 'plumber' — used in triage prompt
+  bookingUrl: string;         // Cal.com link sent in the SMS
+  avgJobValuePence: number;   // attributed revenue per booking (default 15000)
+  twilioNumber: string;       // inbound number, maps the webhook back to this tenant
+}
+```
+
+### Webhook security
+| Webhook | Header | Enforced when |
+|---------|--------|---------------|
+| Twilio voice/sms | `X-Twilio-Signature` | `TWILIO_AUTH_TOKEN` set and `DEMO_MODE !== 'true'` |
+| Cal.com | `X-Cal-Signature-256` | `CALCOM_WEBHOOK_SECRET` set |
+| Stripe | `Stripe-Signature` | `STRIPE_SECRET_KEY` set and `DEMO_MODE !== 'true'` |
+
+Invalid signature → `403`. Signatures are checked against the **raw** request body;
+`TWILIO_WEBHOOK_BASE_URL` overrides the URL used for Twilio's signature if the
+forwarded headers don't reflect the public URL.
+
+### Tenant resolution (Twilio)
+`To` → tenant whose `config.twilioNumber` matches (digits-only comparison).
+Falls back to the `?tenantId` query param when no number is mapped; `400` if neither resolves.
+
+### Cal.com webhook
+Accepts the real Cal.com payload: `{ triggerEvent, createdAt, payload: { uid, bookingId, attendees[], responses{}, metadata{} } }`.
+
+- Phone read from `responses.phone` → `responses.attendeePhoneNumber` → `responses.smsReminderNumber` → `attendees[0].phoneNumber`.
+- Tenant from `payload.metadata.tenantId`, else `?tenantId`.
+- `payload.metadata.callSid` attributes the booking to a specific missed call.
+- `BOOKING_CREATED` / `BOOKING_PAID` create a booking; `BOOKING_CANCELLED` / `BOOKING_REJECTED` remove it so cancelled jobs stop counting as revenue; other events are acknowledged and ignored.
+- Idempotent on `payload.uid` (`bookings.cal_uid`, unique) — redelivery never double-counts.
+- Legacy flat body `{ tenantId, phone, callSid? }` is still accepted for manual/demo bookings.
+
 ## ComplyBot
 
 ### ReceiptUpload
@@ -156,6 +191,7 @@ interface CompanySignal {
 | POST | /webhooks/calcom | tradetap |
 | GET | /api/tradetap/stats/:tenantId | tradetap |
 | GET | /api/tradetap/report/:tenantId | tradetap |
+| GET | /api/tradetap/report/:tenantId?format=pdf | tradetap |
 | POST | /api/complybot/receipt | complybot |
 | GET | /api/complybot/expenses/:tenantId | complybot |
 | POST | /api/planningpulse/subscribe | planningpulse |

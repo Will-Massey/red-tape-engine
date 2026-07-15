@@ -50,6 +50,7 @@ export const bookings = pgTable('bookings', {
     .notNull()
     .references(() => tenants.id),
   callSid: text('call_sid'),
+  calUid: text('cal_uid').unique(),
   phone: text('phone').notNull(),
   source: text('source').notNull(),
   estimatedValuePence: integer('estimated_value_pence').notNull().default(0),

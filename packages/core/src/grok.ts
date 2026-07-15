@@ -63,13 +63,20 @@ Return JSON only:
     return demoTriage(input);
   }
 
-  const raw = await chat(
-    [
-      { role: 'system', content: 'You are a UK trades SMS triage agent. Return valid JSON only.' },
-      { role: 'user', content: prompt },
-    ],
-    true,
-  );
+  let raw: string;
+  try {
+    raw = await chat(
+      [
+        { role: 'system', content: 'You are a UK trades SMS triage agent. Return valid JSON only.' },
+        { role: 'user', content: prompt },
+      ],
+      true,
+    );
+  } catch {
+    // A missed call must always get a text back, so fall back to the templates
+    // rather than failing the webhook when xAI is unreachable or misconfigured.
+    return demoTriage(input);
+  }
 
   try {
     const parsed = JSON.parse(raw) as SmsTriageResult;
