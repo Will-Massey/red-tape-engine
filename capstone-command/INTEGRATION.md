@@ -22,11 +22,21 @@ CALLFORGE_CAMPAIGN_TRADETAP=<campaign-uuid>
 CALLFORGE_CAMPAIGN_DEFAULT=<campaign-uuid>   # fallback
 ```
 
+Seed the TradeTap voice campaign (after unsuspending CallForge on Render):
+
+```bash
+cd ~/projects/callforge
+DB_PATH=/var/data/callforge.db node scripts/seed-tradetap-voice.mjs
+# Copy the printed CALLFORGE_CAMPAIGN_TRADETAP into Render env, then redeploy
+```
+
 Get UUIDs from CallForge dashboard or:
 
 ```bash
 curl -H "X-API-Key: $ACCOUNT_API_KEY" https://callforge-ruau.onrender.com/api/campaigns
 ```
+
+> **Note:** CallForge is currently suspended on Render — unsuspend before setting env vars or seeding.
 
 ## 3. Reach (Render env)
 

@@ -113,13 +113,30 @@
     pre.report.visible { display: block; }
     .robot-goal {
       margin-top: 2rem;
-      padding: 1.25rem;
+      padding: 1.5rem;
       border-radius: 12px;
       border: 1px dashed rgba(0, 212, 170, 0.4);
       background: rgba(0, 212, 170, 0.05);
-      text-align: center;
     }
-    .robot-goal .value { font-size: 1.5rem; color: var(--accent); font-weight: 700; }
+    .robot-goal h2 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 0.5rem; text-align: center; }
+    .robot-goal .value { font-size: 1.75rem; color: var(--accent); font-weight: 700; text-align: center; }
+    .robot-goal .sub { text-align: center; }
+    .robot-sources {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 0.75rem;
+      margin-top: 1rem;
+    }
+    .robot-source {
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.75rem;
+      font-size: 0.8rem;
+    }
+    .robot-source .name { color: var(--muted); font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.06em; }
+    .robot-source .num { font-size: 1.1rem; font-weight: 600; color: var(--text); margin-top: 0.2rem; }
+    .robot-source.offline { opacity: 0.5; }
     .progress-bar {
       height: 8px;
       background: var(--border);
@@ -249,13 +266,14 @@
     <div class="grid" id="summary-cards"></div>
     <div class="verticals" id="verticals"></div>
 
-    <div class="robot-goal">
-      <div>Robot Body Fund (Unitree G1 ≈ £12,000)</div>
+    <div class="robot-goal" id="robot-fund">
+      <h2>Robot Body Fund — Unitree G1</h2>
       <div class="value" id="robot-progress">£0 / £12,000</div>
       <div class="progress-bar"><div id="robot-bar" style="width: 0%"></div></div>
-      <div class="sub" style="margin-top: 0.5rem; color: var(--muted); font-size: 0.8rem">
-        At £99/mo × 10 trades = £990/mo → robot in ~12 months. One accountant × 20 clients = ~10 months.
+      <div class="sub" id="robot-eta" style="margin-top: 0.5rem; color: var(--muted); font-size: 0.8rem">
+        100% of Capstone proceeds → robot fund
       </div>
+      <div class="robot-sources" id="robot-sources"></div>
     </div>
   </main>
 
@@ -313,10 +331,41 @@
         </div>
       `;
 
-      const mrr = tenants.length * 99;
-      const pct = Math.min(100, (mrr / ROBOT_TARGET) * 100);
-      document.getElementById('robot-progress').textContent = `£${mrr} MRR potential / £${ROBOT_TARGET.toLocaleString()}`;
+    }
+
+    function renderRobotFund(fund) {
+      if (!fund) return;
+      const confirmed = fund.confirmedMrrGbp ?? 0;
+      const pipeline = fund.pipelineMrrGbp ?? 0;
+      const total = fund.totalMrrGbp ?? confirmed + pipeline;
+      const target = fund.targetGbp ?? ROBOT_TARGET;
+      const pct = fund.progressPct ?? Math.min(100, (total / target) * 100);
+
+      document.getElementById('robot-progress').textContent =
+        `£${confirmed.toFixed(0)} confirmed + £${pipeline.toFixed(0)} pipeline / £${target.toLocaleString()}`;
       document.getElementById('robot-bar').style.width = pct + '%';
+
+      const eta = fund.monthsToRobot
+        ? `At £${confirmed.toFixed(0)}/mo confirmed → robot in ~${fund.monthsToRobot} months`
+        : pipeline > 0
+        ? `Pipeline building — £${pipeline.toFixed(0)}/mo potential from Reach + RTE demos`
+        : fund.pledge ?? '100% of Capstone proceeds → robot fund';
+      document.getElementById('robot-eta').textContent = eta;
+
+      const s = fund.sources ?? {};
+      const rows = [
+        { key: 'rte', label: 'RTE', val: s.rte?.potentialMrrGbp ? `£${s.rte.potentialMrrGbp}/mo demo` : '—', ok: s.rte?.ok },
+        { key: 'stripe', label: 'Stripe', val: s.stripe?.connected ? `£${s.stripe.mrrGbp}/mo` : 'Not connected', ok: s.stripe?.ok },
+        { key: 'reach', label: 'Reach', val: s.reach?.ok ? `${s.reach.customers ?? 0} customers · ${s.reach.meetings ?? 0} meetings` : 'Offline', ok: s.reach?.ok },
+        { key: 'callforge', label: 'CallForge', val: s.callforge?.ok ? `${s.callforge.meetingsBooked ?? 0} booked` : 'Offline', ok: s.callforge?.ok },
+      ];
+
+      document.getElementById('robot-sources').innerHTML = rows.map((r) => `
+        <div class="robot-source ${r.ok ? '' : 'offline'}">
+          <div class="name">${r.label}</div>
+          <div class="num">${r.val}</div>
+        </div>
+      `).join('');
     }
 
     function renderVertical(t) {
@@ -372,11 +421,16 @@
 
     async function load() {
       try {
-        const res = await fetch(`${API}/overview`);
-        const data = await res.json();
+        const [overviewRes, fundRes] = await Promise.all([
+          fetch(`${API}/overview`),
+          fetch(`${API}/robot-fund`),
+        ]);
+        const data = await overviewRes.json();
+        const fund = fundRes.ok ? await fundRes.json() : null;
         document.getElementById('mode-badge').textContent = data.demoMode ? 'DEMO MODE' : 'LIVE';
         document.getElementById('status').textContent = `Updated ${new Date().toLocaleTimeString()}`;
         renderSummary(data.tenants);
+        renderRobotFund(fund);
         document.getElementById('verticals').innerHTML = data.tenants.map(renderVertical).join('');
       } catch (e) {
         document.getElementById('status').textContent = 'API offline — start with npm run dev';

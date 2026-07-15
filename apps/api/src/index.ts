@@ -16,6 +16,7 @@ import {
   createCheckoutSession,
   handleStripeWebhook,
   isDemoMode,
+  getRobotFundSnapshot,
   logUsage,
   validateTwilioSignature,
   isTwilioSignatureRequired,
@@ -439,6 +440,10 @@ app.get('/api/tenants/:id', async (req, reply) => {
 });
 
 // Dashboard proxy routes (same-origin for production)
+app.get('/api/command/robot-fund', async () => getRobotFundSnapshot());
+
+app.get('/api/proxy/robot-fund', async () => getRobotFundSnapshot());
+
 app.get('/api/proxy/overview', async () => {
   const allTenants = await db.select().from(schema.tenants);
   const overview = [];
