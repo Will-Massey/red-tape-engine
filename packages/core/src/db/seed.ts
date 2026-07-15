@@ -17,6 +17,8 @@ async function main() {
         tradeType: 'plumber',
         bookingUrl: process.env.CALCOM_BOOKING_URL ?? 'https://cal.com/demo',
         avgJobValuePence: 18500,
+        // Maps the inbound Twilio number back to this tenant.
+        twilioNumber: process.env.TWILIO_PHONE_NUMBER ?? '+447700900100',
       },
     })
     .returning();

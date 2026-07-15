@@ -25,10 +25,28 @@ app.get('/api/proxy/tradetap/:tenantId/stats', async (req) => {
   return res.json();
 });
 
-app.get('/api/proxy/tradetap/:tenantId/report', async (req) => {
+app.get('/api/proxy/tradetap/:tenantId/report', async (req, reply) => {
   const { tenantId } = req.params as { tenantId: string };
-  const res = await fetch(`${API_URL}/api/tradetap/report/${tenantId}`);
-  return res.text();
+  const { format } = req.query as { format?: string };
+
+  const res = await fetch(
+    `${API_URL}/api/tradetap/report/${tenantId}${format === 'pdf' ? '?format=pdf' : ''}`,
+  );
+
+  if (format === 'pdf') {
+    // Must go through as bytes — res.text() would corrupt the PDF.
+    const pdf = Buffer.from(await res.arrayBuffer());
+    return reply
+      .status(res.status)
+      .type(res.headers.get('content-type') ?? 'application/pdf')
+      .header(
+        'content-disposition',
+        res.headers.get('content-disposition') ?? `attachment; filename="tradetap-weekly.pdf"`,
+      )
+      .send(pdf);
+  }
+
+  return reply.type('text/plain').send(await res.text());
 });
 
 try {

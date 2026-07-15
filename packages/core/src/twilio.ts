@@ -29,6 +29,30 @@ export async function sendSms(to: string, body: string): Promise<{ sid: string; 
   return { sid: msg.sid, demo: false };
 }
 
+/**
+ * Twilio signs the exact URL it requested (query string included) plus the
+ * POST params. Demo mode has no auth token to check against, so it accepts.
+ */
+export function validateTwilioSignature(input: {
+  signature?: string;
+  url: string;
+  params: Record<string, string>;
+}): boolean {
+  if (!isTwilioSignatureRequired()) return true;
+  if (!input.signature) return false;
+
+  return twilio.validateRequest(authToken!, input.signature, input.url, input.params);
+}
+
+export function isTwilioSignatureRequired(): boolean {
+  return !DEMO_MODE && Boolean(authToken);
+}
+
+/** Digits-only comparison so +44 7700 900100 and +447700900100 match. */
+export function normalisePhone(phone: string): string {
+  return phone.replace(/[^\d]/g, '');
+}
+
 export function twimlMissedCall(): string {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>

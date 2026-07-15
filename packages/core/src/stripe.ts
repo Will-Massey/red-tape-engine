@@ -31,13 +31,31 @@ export async function createCheckoutSession(input: {
     };
   }
 
+  const [tenant] = await db
+    .select()
+    .from(schema.tenants)
+    .where(eq(schema.tenants.id, input.tenantId))
+    .limit(1);
+
+  if (!tenant) {
+    throw new Error(`Tenant not found: ${input.tenantId}`);
+  }
+
+  const metadata = { tenantId: input.tenantId, vertical: input.vertical };
+
   const session = await stripe.checkout.sessions.create({
     mode: 'subscription',
     line_items: [{ price: priceId, quantity: 1 }],
     success_url: `${appUrl}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${appUrl}/dashboard?cancelled=1`,
-    metadata: { tenantId: input.tenantId, vertical: input.vertical },
-    customer_email: input.customerEmail,
+    client_reference_id: input.tenantId,
+    metadata,
+    // Carried onto the subscription so later lifecycle events resolve the tenant.
+    subscription_data: { metadata },
+    // Reuse the existing customer so repeat checkouts don't duplicate records.
+    ...(tenant.stripeCustomerId
+      ? { customer: tenant.stripeCustomerId }
+      : { customer_email: input.customerEmail }),
   });
 
   return { url: session.url ?? appUrl, demo: false };
@@ -47,8 +65,14 @@ export async function handleStripeWebhook(
   payload: string | Buffer,
   signature: string,
 ): Promise<{ handled: boolean; message: string }> {
-  if (!stripe || !process.env.STRIPE_WEBHOOK_SECRET) {
+  if (!stripe || DEMO_MODE) {
     return { handled: true, message: 'Demo mode — webhook acknowledged' };
+  }
+
+  // Live Stripe key but no signing secret would mean accepting unverified
+  // events that can flip a tenant's plan. Refuse instead.
+  if (!process.env.STRIPE_WEBHOOK_SECRET) {
+    throw new Error('STRIPE_WEBHOOK_SECRET not configured — refusing unverified webhook');
   }
 
   const event = stripe.webhooks.constructEvent(
@@ -59,18 +83,36 @@ export async function handleStripeWebhook(
 
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as Stripe.Checkout.Session;
-    const tenantId = session.metadata?.tenantId;
-    if (tenantId) {
-      await db
-        .update(schema.tenants)
-        .set({
-          stripeCustomerId: session.customer as string,
-          stripeSubscriptionId: session.subscription as string,
-          plan: 'starter',
-        })
-        .where(eq(schema.tenants.id, tenantId));
+    const tenantId = session.metadata?.tenantId ?? session.client_reference_id ?? undefined;
+    if (!tenantId) {
+      return { handled: false, message: 'checkout.session.completed without tenantId' };
     }
+
+    await db
+      .update(schema.tenants)
+      .set({
+        stripeCustomerId: session.customer as string,
+        stripeSubscriptionId: session.subscription as string,
+        plan: 'starter',
+      })
+      .where(eq(schema.tenants.id, tenantId));
+
     return { handled: true, message: `Checkout completed for tenant ${tenantId}` };
+  }
+
+  if (event.type === 'customer.subscription.deleted') {
+    const subscription = event.data.object as Stripe.Subscription;
+    const tenantId = subscription.metadata?.tenantId;
+    if (!tenantId) {
+      return { handled: false, message: 'subscription.deleted without tenantId' };
+    }
+
+    await db
+      .update(schema.tenants)
+      .set({ plan: 'trial', stripeSubscriptionId: null })
+      .where(eq(schema.tenants.id, tenantId));
+
+    return { handled: true, message: `Subscription cancelled for tenant ${tenantId}` };
   }
 
   return { handled: true, message: `Unhandled event: ${event.type}` };

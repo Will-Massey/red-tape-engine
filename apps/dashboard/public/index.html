@@ -347,6 +347,7 @@
 
       const actions = t.vertical === 'tradetap'
         ? `<button onclick="loadReport('${t.id}')">Weekly Report</button>
+           <button class="secondary" onclick="downloadReportPdf('${t.id}')">Download PDF</button>
            <button class="secondary" onclick="simulateCall('${t.id}')">Simulate Call</button>`
         : t.vertical === 'planningpulse'
         ? `<button class="secondary" onclick="pollPlanning('${t.id}')">Poll Now</button>`
@@ -388,6 +389,25 @@
       const el = document.getElementById(`report-${tenantId}`);
       el.textContent = text;
       el.classList.add('visible');
+    }
+
+    async function downloadReportPdf(tenantId) {
+      const res = await fetch(`${API}/tradetap/${tenantId}/report?format=pdf`);
+      if (!res.ok) {
+        alert('Could not generate PDF report.');
+        return;
+      }
+
+      const blob = await res.blob();
+      const match = /filename="([^"]+)"/.exec(res.headers.get('content-disposition') || '');
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = match ? match[1] : `tradetap-weekly-${tenantId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
     }
 
     async function heroSimulate() {

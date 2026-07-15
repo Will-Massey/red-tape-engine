@@ -24,3 +24,9 @@ services:
         sync: false
       - key: STRIPE_SECRET_KEY
         sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: STRIPE_PRICE_TRADETAP
+        sync: false
+      - key: CALCOM_WEBHOOK_SECRET
+        sync: false
