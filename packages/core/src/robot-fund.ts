@@ -1,5 +1,4 @@
-import { db } from './db/client.js';
-import { schema } from './db/schema.js';
+import { db, schema } from './db/client.js';
 import { stripe } from './stripe.js';
 import type { Vertical } from './types.js';
 

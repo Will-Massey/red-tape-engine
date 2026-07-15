@@ -23,7 +23,9 @@ async function main() {
     })
     .returning();
 
-  await db.insert(schema.tenants).values([
+  const others = await db
+    .insert(schema.tenants)
+    .values([
     {
       name: 'Riverside Landlords Ltd',
       vertical: 'complybot',
@@ -51,7 +53,19 @@ async function main() {
       plan: 'agency',
       config: { sicCodes: ['62012', '62020'] },
     },
-  ]);
+  ])
+    .returning();
+
+  const northbuild = others.find((t) => t.vertical === 'planningpulse');
+  if (northbuild) {
+    await db.insert(schema.planningSubscriptions).values({
+      tenantId: northbuild.id,
+      name: 'Oxford Road site',
+      lat: 53.466,
+      lng: -2.242,
+      radiusMetres: 5000,
+    });
+  }
 
   if (dave) {
     const now = new Date();

@@ -46,4 +46,22 @@ export async function backfillTenantConfigs() {
       })
       .where(eq(schema.tenants.id, tenant.id));
   }
+
+  for (const tenant of planning) {
+    const [existing] = await db
+      .select({ id: schema.planningSubscriptions.id })
+      .from(schema.planningSubscriptions)
+      .where(eq(schema.planningSubscriptions.tenantId, tenant.id))
+      .limit(1);
+
+    if (existing) continue;
+
+    await db.insert(schema.planningSubscriptions).values({
+      tenantId: tenant.id,
+      name: `${tenant.name} — HQ`,
+      lat: 53.466,
+      lng: -2.242,
+      radiusMetres: 5000,
+    });
+  }
 }

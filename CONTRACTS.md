@@ -121,7 +121,7 @@ Accepts `text/plain`, `text/csv` and image mime types; max 10MB.
 
 **Open:** image receipts cannot be read. `categoriseReceipt()` in `@rte/core`
 takes `{ rawText, filename }` and has no image/vision parameter, so images are
-served by the demo stub in demo mode and rejected `501 ocr_unavailable` when
+served by the demo stub in demo mode and rejected `502 receipt_unreadable` when
 demo mode is off. Needs a core vision path — conductor's call.
 
 ### CategorisedExpense (Grok output)

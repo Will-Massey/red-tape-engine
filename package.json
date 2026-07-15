@@ -3,7 +3,8 @@
   "private": true,
   "workspaces": [
     "packages/*",
-    "apps/*"
+    "apps/api",
+    "apps/dashboard"
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
@@ -16,7 +17,8 @@
     "db:seed": "npm run db:seed -w @rte/core",
     "smoke:tradetap": "npm run smoke -w @rte/tradetap",
     "test:receipt-vision": "npm run test:receipt-vision -w @rte/core",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "verify": "npm run typecheck && npm run test:receipt-vision && npm run build && npm run smoke:tradetap"
   },
   "engines": {
     "node": ">=20"

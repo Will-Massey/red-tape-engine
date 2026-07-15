@@ -2,6 +2,7 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { db, schema, summarisePlanningAlert, logUsage, isDemoMode } from '@rte/core';
 import type { PlanningApplication } from '@rte/core';
 import { sendPlanningDigest, type DigestResult } from './digest.js';
+import { geocodeFromText } from './geocode.js';
 
 type AlertRow = typeof schema.planningAlerts.$inferSelect;
 
@@ -56,7 +57,15 @@ async function fetchRecentApplications(): Promise<PlanningApplication[]> {
     const located: PlanningApplication[] = [];
 
     for (const [i, e] of entities.entries()) {
-      const location = locationOf(e);
+      let location = locationOf(e);
+      if (!location) {
+        location = await geocodeFromText([
+          typeof e.address === 'string' ? e.address : undefined,
+          typeof e['site-address'] === 'string' ? (e['site-address'] as string) : undefined,
+          typeof e.description === 'string' ? e.description : undefined,
+          typeof e.name === 'string' ? e.name : undefined,
+        ]);
+      }
       if (!location) continue;
 
       located.push({
