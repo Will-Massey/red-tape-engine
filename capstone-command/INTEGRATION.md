@@ -42,7 +42,7 @@ curl -H "X-API-Key: $ACCOUNT_API_KEY" https://callforge-ruau.onrender.com/api/ca
 
 ```bash
 CAPSTONE_WEBHOOK_SECRET=<same-secret>
-INTERESTED_WEBHOOK_URL=https://callforge-capstone.onrender.com/api/webhooks/reach
+INTERESTED_WEBHOOK_URL=https://callforge-hprd.onrender.com/api/webhooks/reach
 ```
 
 ## 4. Seed TradeTap campaign in Reach
@@ -56,7 +56,7 @@ cd ~/projects/reach && node server/scripts/seed-tradetap.mjs
 **Reach → CallForge (simulate warm handoff):**
 
 ```bash
-curl -X POST https://callforge-capstone.onrender.com/api/webhooks/reach \
+curl -X POST https://callforge-hprd.onrender.com/api/webhooks/reach \
   -H "Authorization: Bearer $CAPSTONE_WEBHOOK_SECRET" \
   -H "Content-Type: application/json" \
   -d '{
