@@ -2,14 +2,22 @@ import twilio from 'twilio';
 
 const accountSid = process.env.TWILIO_ACCOUNT_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
+const apiKeySid = process.env.TWILIO_API_KEY_SID;
+const apiKeySecret = process.env.TWILIO_API_KEY_SECRET;
 const fromNumber = process.env.TWILIO_PHONE_NUMBER;
-const DEMO_MODE = process.env.DEMO_MODE === 'true' || !accountSid || !authToken;
+const hasRestAuth =
+  Boolean(accountSid && authToken) || Boolean(accountSid && apiKeySid && apiKeySecret);
+const DEMO_MODE = process.env.DEMO_MODE === 'true' || !hasRestAuth;
 
 let client: ReturnType<typeof twilio> | null = null;
 
 function getClient() {
-  if (!client && accountSid && authToken) {
-    client = twilio(accountSid, authToken);
+  if (!client && accountSid) {
+    if (apiKeySid && apiKeySecret) {
+      client = twilio(apiKeySid, apiKeySecret, { accountSid });
+    } else if (authToken) {
+      client = twilio(accountSid, authToken);
+    }
   }
   return client;
 }
