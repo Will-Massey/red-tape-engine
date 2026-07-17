@@ -15,9 +15,11 @@ services:
       - key: AGILEPILOT_DEFAULT_PROVIDER
         value: octopus
       - key: AGILEPILOT_ENTERPRISE_MODE
-        value: "false"
+        value: "true"
       - key: AGILEPILOT_FORCE_DEMO
         value: "false"
+      - key: AGILEPILOT_DEMO_TENANT_ID
+        value: "0e99308d-9a09-4620-b420-4951eacaf971"
       - key: DATABASE_URL
         sync: false
       - key: XAI_API_KEY

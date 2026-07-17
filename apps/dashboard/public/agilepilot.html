@@ -29,6 +29,8 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
     }
     header a { color: var(--muted); text-decoration: none; font-size: 0.9rem; }
     header a:hover { color: var(--accent); }
@@ -41,7 +43,24 @@
       line-height: 1.15;
       margin-bottom: 1rem;
     }
-    .lead { font-size: 1.1rem; color: var(--muted); max-width: 36rem; margin-bottom: 2rem; }
+    .lead { font-size: 1.1rem; color: var(--muted); max-width: 38rem; margin-bottom: 1.25rem; }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 1.5rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+    }
+    .dot {
+      width: 0.5rem; height: 0.5rem; border-radius: 50%;
+      background: var(--muted);
+    }
+    .dot.live { background: var(--accent); box-shadow: 0 0 8px rgba(0, 212, 170, 0.6); }
     .pills { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 2.5rem; }
     .pill {
       font-size: 0.75rem;
@@ -60,6 +79,20 @@
     }
     .card h2 { font-size: 0.85rem; color: var(--accent); margin-bottom: 0.5rem; }
     .card p { font-size: 0.9rem; color: var(--muted); }
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+    }
+    .metric {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem;
+    }
+    .metric .v { font-size: 1.35rem; font-weight: 600; letter-spacing: -0.02em; color: var(--accent); }
+    .metric .l { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.25rem; }
     .panel {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -69,7 +102,7 @@
     }
     .panel h3 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 0.75rem; }
     label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 0.35rem; }
-    select, button {
+    select, button, input {
       font: inherit;
       padding: 0.55rem 0.9rem;
       border-radius: 8px;
@@ -85,6 +118,11 @@
       font-weight: 500;
     }
     button:hover { background: rgba(0, 212, 170, 0.25); }
+    button.secondary {
+      background: transparent;
+      border-color: var(--border);
+      color: var(--muted);
+    }
     .row { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: flex-end; margin-bottom: 1rem; }
     pre {
       font-size: 0.78rem;
@@ -97,6 +135,13 @@
       border: 1px solid var(--border);
       white-space: pre-wrap;
     }
+    .cta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      align-items: center;
+      margin-top: 1rem;
+    }
     footer {
       margin-top: 3rem;
       padding-top: 1.5rem;
@@ -105,6 +150,7 @@
       color: var(--muted);
     }
     footer a { color: var(--accent2); }
+    code { font-size: 0.85em; color: var(--accent); }
   </style>
 </head>
 <body>
@@ -113,7 +159,9 @@
     <div>
       <a href="/">Dashboard</a>
       &nbsp;·&nbsp;
-      <a href="/docs" id="docs-link">Enterprise docs</a>
+      <a href="https://github.com/Will-Massey/red-tape-engine/blob/main/docs/agilepilot-one-pager.md" target="_blank" rel="noopener">One-pager</a>
+      &nbsp;·&nbsp;
+      <a href="https://github.com/Will-Massey/red-tape-engine/blob/main/docs/agilepilot-enterprise.md" target="_blank" rel="noopener">Enterprise</a>
     </div>
   </header>
   <main>
@@ -123,11 +171,19 @@
       Policy-aware windows, carbon intensity, and an auditable savings ledger.
       Built to white-label for energy retailers — and ready for households today.
     </p>
+    <div class="status" id="status"><span class="dot" id="status-dot"></span> <span id="status-text">Checking API…</span></div>
     <div class="pills">
-      <span class="pill">Octopus Agile</span>
+      <span class="pill">Octopus Agile (live)</span>
       <span class="pill">EDF open tariffs</span>
       <span class="pill">NESO carbon signal</span>
       <span class="pill">OEM white-label</span>
+    </div>
+
+    <div class="metrics" id="metrics" hidden>
+      <div class="metric"><div class="v" id="m-price">—</div><div class="l">Cheapest p/kWh</div></div>
+      <div class="metric"><div class="v" id="m-save">—</div><div class="l">Est. shift save</div></div>
+      <div class="metric"><div class="v" id="m-co2">—</div><div class="l">gCO₂ at window</div></div>
+      <div class="metric"><div class="v" id="m-live">—</div><div class="l">Provider live</div></div>
     </div>
 
     <div class="grid">
@@ -157,13 +213,30 @@
           </select>
         </div>
         <button type="button" id="run">Get shift plan</button>
+        <button type="button" class="secondary" id="ledger">Ledger (demo tenant)</button>
+        <button type="button" class="secondary" id="brand">OEM brand</button>
       </div>
-      <pre id="out">Click “Get shift plan” to load recommended windows…</pre>
+      <pre id="out">Loading live Octopus plan…</pre>
+      <div class="cta">
+        <button type="button" id="checkout">Start AgilePilot trial (£9.99/mo)</button>
+        <span style="font-size:0.8rem;color:var(--muted)">Stripe test checkout · demo tenant auto-created if needed</span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>API for partners (copy-paste)</h3>
+      <pre id="api-snip">GET /api/agilepilot/slots?provider=octopus&amp;enterprise=true&amp;policy=true
+GET /api/agilepilot/providers
+GET /api/agilepilot/brand/capstone-demo
+GET /api/agilepilot/ledger/:tenantId
+POST /api/agilepilot/partners  (x-admin-key)
+GET /api/agilepilot/partner/me  (x-partner-key)</pre>
     </div>
 
     <footer>
       Path A: white-label for Octopus / Kraken licensees ·
       Path B: multi-supplier consumer ·
+      Live: <code id="host"></code> ·
       <a href="/">Ops dashboard</a>
     </footer>
   </main>
@@ -171,31 +244,125 @@
     const API = location.origin.includes('3848')
       ? 'http://localhost:3847/api'
       : location.origin + '/api';
+    const DEMO_TENANT = '0e99308d-9a09-4620-b420-4951eacaf971';
+    document.getElementById('host').textContent = location.host;
 
-    document.getElementById('run').onclick = async () => {
-      const provider = document.getElementById('provider').value;
+    async function loadPlan(provider) {
       const out = document.getElementById('out');
       out.textContent = 'Loading…';
-      try {
-        const res = await fetch(
-          `${API}/agilepilot/slots?provider=${encodeURIComponent(provider)}&policy=true&enterprise=true`,
+      const res = await fetch(
+        `${API}/agilepilot/slots?provider=${encodeURIComponent(provider)}&policy=true&enterprise=true`,
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const lines = [];
+      lines.push(data.plan?.summary || data.savingsEstimate);
+      lines.push(`Provider: ${data.provider?.name} · live=${data.provider?.live}`);
+      if (!data.affiliateNote) lines.push('Mode: enterprise (affiliate copy suppressed)');
+      lines.push('');
+      for (const s of data.plan?.recommended || data.slots || []) {
+        lines.push(
+          `${new Date(s.start).toLocaleString('en-GB', { timeZone: 'Europe/London' })}  ` +
+            `${s.pricePencePerKwh}p/kWh  score=${s.score ?? '—'}  CO₂=${s.carbonGCo2PerKwh ?? '—'}g`,
         );
-        const data = await res.json();
-        const lines = [];
-        lines.push(data.plan?.summary || data.savingsEstimate);
-        lines.push(`Provider: ${data.provider?.name} · live=${data.provider?.live}`);
-        lines.push('');
-        for (const s of data.plan?.recommended || data.slots || []) {
-          lines.push(
-            `${new Date(s.start).toLocaleString('en-GB', { timeZone: 'Europe/London' })}  ` +
-              `${s.pricePencePerKwh}p/kWh  score=${s.score ?? '—'}  CO₂=${s.carbonGCo2PerKwh ?? '—'}g`,
-          );
-        }
-        out.textContent = lines.join('\n');
-      } catch (e) {
-        out.textContent = 'API offline — start Red Tape Engine (npm run dev).';
+      }
+      out.textContent = lines.join('\n');
+
+      document.getElementById('metrics').hidden = false;
+      const cheap = data.cheapest || data.plan?.recommended?.[0];
+      document.getElementById('m-price').textContent =
+        cheap?.pricePencePerKwh != null ? `${cheap.pricePencePerKwh}p` : '—';
+      document.getElementById('m-save').textContent =
+        data.savingsPence != null ? `£${(data.savingsPence / 100).toFixed(2)}` : '—';
+      document.getElementById('m-co2').textContent =
+        cheap?.carbonGCo2PerKwh != null ? String(Math.round(cheap.carbonGCo2PerKwh)) : '—';
+      document.getElementById('m-live').textContent = data.provider?.live ? 'yes' : 'demo';
+      return data;
+    }
+
+    document.getElementById('run').onclick = async () => {
+      try {
+        await loadPlan(document.getElementById('provider').value);
+      } catch {
+        document.getElementById('out').textContent =
+          'API offline or cold-starting (free tier). Retry in ~30s.';
       }
     };
+
+    document.getElementById('ledger').onclick = async () => {
+      const out = document.getElementById('out');
+      out.textContent = 'Loading ledger…';
+      try {
+        await fetch(
+          `${API}/agilepilot/slots?tenantId=${DEMO_TENANT}&policy=true&ledger=true&enterprise=true`,
+        );
+        const res = await fetch(`${API}/agilepilot/ledger/${DEMO_TENANT}?days=30`);
+        const data = await res.json();
+        out.textContent =
+          `Savings ledger (30d) · tenant ${DEMO_TENANT}\n` +
+          `Entries: ${data.entries} · Total: £${data.totalSavingsGbp} · kWh: ${data.totalKwh}\n\n` +
+          (data.recent || [])
+            .slice(0, 5)
+            .map(
+              (e) =>
+                `${e.windowStart}  ${e.pricePencePerKwh}p  save ${e.savingsPence}p  ${e.provider}`,
+            )
+            .join('\n');
+      } catch {
+        out.textContent = 'Ledger unavailable (cold start?).';
+      }
+    };
+
+    document.getElementById('brand').onclick = async () => {
+      const out = document.getElementById('out');
+      try {
+        const res = await fetch(`${API}/agilepilot/brand/capstone-demo`);
+        out.textContent = JSON.stringify(await res.json(), null, 2);
+      } catch {
+        out.textContent = 'Brand endpoint unavailable.';
+      }
+    };
+
+    document.getElementById('checkout').onclick = async () => {
+      const out = document.getElementById('out');
+      out.textContent = 'Creating Stripe Checkout session…';
+      try {
+        const res = await fetch(`${API}/checkout`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            vertical: 'agilepilot',
+            tenantId: DEMO_TENANT,
+            email: 'demo@capstonesoftware.co.uk',
+          }),
+        });
+        const data = await res.json();
+        if (data.url) {
+          out.textContent = `Checkout ready (demo=${data.demo}). Redirecting…\n${data.url}`;
+          window.location.href = data.url;
+        } else {
+          out.textContent = JSON.stringify(data, null, 2);
+        }
+      } catch (e) {
+        out.textContent = 'Checkout failed: ' + e;
+      }
+    };
+
+    (async () => {
+      try {
+        const h = await fetch(`${API.replace(/\/api$/, '')}/health`);
+        const health = await h.json();
+        document.getElementById('status-dot').classList.add('live');
+        document.getElementById('status-text').textContent =
+          `API live · demoMode=${health.demoMode} · ${new Date().toLocaleTimeString('en-GB')}`;
+        await loadPlan('octopus');
+      } catch {
+        document.getElementById('status-text').textContent =
+          'API cold-starting or offline — click Get shift plan to retry';
+        document.getElementById('out').textContent =
+          'Free-tier services sleep when idle. First load can take 30–60s.';
+      }
+    })();
   </script>
 </body>
 </html>

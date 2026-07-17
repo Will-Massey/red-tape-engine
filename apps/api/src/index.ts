@@ -599,13 +599,35 @@ app.post('/webhooks/stripe', async (req, reply) => {
   }
 });
 
-app.post('/api/checkout', async (req) => {
-  const { tenantId, vertical, email } = req.body as {
-    tenantId: string;
-    vertical: 'tradetap' | 'complybot' | 'planningpulse' | 'agilepilot' | 'housesignal';
+app.post('/api/checkout', async (req, reply) => {
+  const body = (req.body ?? {}) as {
+    tenantId?: string;
+    vertical?: 'tradetap' | 'complybot' | 'planningpulse' | 'agilepilot' | 'housesignal';
     email?: string;
   };
-  return createCheckoutSession({ tenantId, vertical, customerEmail: email });
+  if (!body.vertical) {
+    return reply.status(400).send({ error: 'vertical required' });
+  }
+
+  let tenantId = body.tenantId;
+  if (!tenantId) {
+    const [created] = await db
+      .insert(schema.tenants)
+      .values({
+        name: `Checkout ${body.vertical}`,
+        vertical: body.vertical,
+        plan: 'trial',
+        config: body.email ? { checkoutEmail: body.email } : {},
+      })
+      .returning();
+    tenantId = created.id;
+  }
+
+  return createCheckoutSession({
+    tenantId,
+    vertical: body.vertical,
+    customerEmail: body.email,
+  });
 });
 
 app.get('/api/dashboard/overview', async () => {

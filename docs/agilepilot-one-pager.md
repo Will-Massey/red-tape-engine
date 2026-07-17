@@ -3,7 +3,9 @@
 
 **Confidential when marked** — public version may be shared pre-NDA  
 **Capstone Software Solutions** · UK · 2026  
-**Contact:** [William / Capstone — insert email & phone]
+**Contact:** William Massey · Capstone Software Solutions · UK  
+**Live demo:** https://red-tape-engine.onrender.com/agilepilot.html  
+**Email:** william@fortisaccounts.com
 
 ---
 
