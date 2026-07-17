@@ -765,11 +765,19 @@ app.get('/demo/checkout', async (req) => {
 await app.register(fastifyStatic, {
   root: join(ROOT, 'apps/dashboard/public'),
   prefix: '/',
-  decorateReply: false,
+  // Required so SPA fallback can use reply.sendFile (was false → 500 on missing pages).
+  decorateReply: true,
 });
 
 app.setNotFoundHandler(async (req, reply) => {
-  if (req.method === 'GET' && !req.url.startsWith('/api') && !req.url.startsWith('/webhooks') && !req.url.startsWith('/health')) {
+  if (
+    req.method === 'GET' &&
+    !req.url.startsWith('/api') &&
+    !req.url.startsWith('/webhooks') &&
+    !req.url.startsWith('/health')
+  ) {
+    // Missing static files (e.g. /housesignal.html before deploy) fall through here.
+    // Prefer the real file when it exists; otherwise serve the ops dashboard shell.
     return reply.sendFile('index.html');
   }
   return reply.status(404).send({ error: 'Not found' });
