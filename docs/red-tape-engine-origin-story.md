@@ -109,7 +109,7 @@ Twelve-month ambition in the original design: mid five-figure MRR territory, rob
 | ComplyBot | Receipt / OCR / export path; not full MTD submit UX yet |
 | PlanningPulse | Live planning API + cron; digests need polish |
 | AgilePilot | Strongest live path: Octopus rates, policies, ledger, pitch pack, public demo |
-| HouseSignal | Companies House integration; needs API key on Render and more signal types |
+| HouseSignal | API + landing live in demo mode; set `COMPANIES_HOUSE_API_KEY` on Render for live CH |
 
 ---
 

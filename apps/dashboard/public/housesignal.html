@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HouseSignal — Companies House intelligence</title>
+  <meta name="description" content="Daily Companies House signals, enriched and scored for recruiters, sales teams and insurers. £199/mo." />
+  <style>
+    :root {
+      --bg: #070b12;
+      --surface: #101820;
+      --border: #1c2a3a;
+      --text: #e8edf4;
+      --muted: #7a8ba3;
+      --accent: #3b82f6;
+      --accent2: #00d4aa;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.55;
+      min-height: 100vh;
+    }
+    header {
+      padding: 1.25rem 2rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    header a { color: var(--muted); text-decoration: none; font-size: 0.9rem; }
+    header a:hover { color: var(--accent2); }
+    .logo { font-weight: 600; letter-spacing: -0.02em; }
+    .logo span { color: var(--accent); }
+    main { max-width: 960px; margin: 0 auto; padding: 3rem 1.5rem 4rem; }
+    h1 {
+      font-size: clamp(1.75rem, 4vw, 2.5rem);
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+      margin-bottom: 1rem;
+    }
+    .lead { font-size: 1.1rem; color: var(--muted); max-width: 40rem; margin-bottom: 1.25rem; }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 1.5rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+    }
+    .dot {
+      width: 0.5rem; height: 0.5rem; border-radius: 50%;
+      background: var(--muted);
+    }
+    .dot.live { background: var(--accent2); box-shadow: 0 0 8px rgba(0, 212, 170, 0.6); }
+    .dot.demo { background: #f59e0b; }
+    .pills { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 2.5rem; }
+    .pill {
+      font-size: 0.75rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      background: var(--surface);
+    }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; margin-bottom: 2.5rem; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem;
+    }
+    .card h2 { font-size: 0.85rem; color: var(--accent); margin-bottom: 0.5rem; }
+    .card p { font-size: 0.9rem; color: var(--muted); }
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+    .panel h3 {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-bottom: 0.75rem;
+    }
+    button {
+      font: inherit;
+      padding: 0.55rem 0.9rem;
+      border-radius: 8px;
+      border: 1px solid rgba(59, 130, 246, 0.4);
+      background: rgba(59, 130, 246, 0.15);
+      color: var(--accent);
+      cursor: pointer;
+      font-weight: 500;
+    }
+    button:hover { background: rgba(59, 130, 246, 0.25); }
+    button.secondary {
+      background: transparent;
+      border-color: var(--border);
+      color: var(--muted);
+    }
+    .row { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; margin-bottom: 1rem; }
+    pre {
+      font-size: 0.78rem;
+      background: var(--bg);
+      border-radius: 8px;
+      padding: 1rem;
+      overflow: auto;
+      max-height: 360px;
+      color: var(--text);
+      border: 1px solid var(--border);
+      white-space: pre-wrap;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+    th, td {
+      text-align: left;
+      padding: 0.55rem 0.4rem;
+      border-bottom: 1px solid var(--border);
+    }
+    th { color: var(--muted); font-weight: 500; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    .score { color: var(--accent2); font-weight: 600; }
+    footer {
+      margin-top: 3rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    footer a { color: var(--accent2); }
+    code { font-size: 0.85em; color: var(--accent2); }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">House<span>Signal</span></div>
+    <div>
+      <a href="/">Dashboard</a>
+      &nbsp;·&nbsp;
+      <a href="/agilepilot.html">AgilePilot</a>
+      &nbsp;·&nbsp;
+      <a href="https://github.com/Will-Massey/red-tape-engine" target="_blank" rel="noopener">Repo</a>
+    </div>
+  </header>
+  <main>
+    <h1>Who just incorporated, hired, or looks like a buyer</h1>
+    <p class="lead">
+      Companies House filings, enriched and scored for recruiters, sales agencies and insurers.
+      Vertical slices beat raw dumps. £199/month for a feed you can act on.
+    </p>
+    <div class="status" id="status"><span class="dot" id="status-dot"></span> <span id="status-text">Checking API…</span></div>
+    <div class="pills">
+      <span class="pill">Incorporations</span>
+      <span class="pill">Director changes</span>
+      <span class="pill">Accounts filed</span>
+      <span class="pill">SIC filters</span>
+      <span class="pill">Grok enrichment</span>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2>Open data in</h2>
+        <p>Pull recent filings from Companies House. Live when <code>COMPANIES_HOUSE_API_KEY</code> is set; demo signals otherwise.</p>
+      </div>
+      <div class="card">
+        <h2>Enrichment</h2>
+        <p>Each new signal is scored and summarised so your team reads intent, not a raw CSV.</p>
+      </div>
+      <div class="card">
+        <h2>Vertical slices</h2>
+        <p>Filter by SIC codes per tenant. Sell “new UK SaaS CTOs” not “every company in Britain”.</p>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>Live feed</h3>
+      <div class="row">
+        <button type="button" id="scan">Run scan</button>
+        <button type="button" class="secondary" id="refresh">Refresh signals</button>
+        <button type="button" id="checkout">Start trial (£199/mo)</button>
+      </div>
+      <pre id="out">Loading signals…</pre>
+      <div id="table-wrap" style="margin-top:1rem;overflow-x:auto"></div>
+    </div>
+
+    <div class="panel">
+      <h3>API</h3>
+      <pre>POST /api/housesignal/scan
+  body: { "tenantId"?: string, "sicCodes"?: string[] }
+
+GET  /api/housesignal/signals?limit=50
+
+POST /api/checkout
+  body: { "vertical": "housesignal", "email": "you@company.com" }</pre>
+    </div>
+
+    <footer>
+      Part of <a href="/">Red Tape Engine</a> · Capstone Software Solutions ·
+      Live: <code id="host"></code>
+    </footer>
+  </main>
+  <script>
+    const API = location.origin.includes('3848')
+      ? 'http://localhost:3847/api'
+      : location.origin + '/api';
+    document.getElementById('host').textContent = location.host;
+
+    function setStatus(mode, text) {
+      const dot = document.getElementById('status-dot');
+      const el = document.getElementById('status-text');
+      dot.className = 'dot' + (mode === 'live' ? ' live' : mode === 'demo' ? ' demo' : '');
+      el.textContent = text;
+    }
+
+    function renderTable(signals) {
+      const wrap = document.getElementById('table-wrap');
+      if (!signals?.length) {
+        wrap.innerHTML = '<p style="color:var(--muted);font-size:0.9rem">No stored signals yet. Run a scan.</p>';
+        return;
+      }
+      const rows = signals
+        .slice(0, 20)
+        .map(
+          (s) => `<tr>
+            <td>${escapeHtml(s.companyName || '')}</td>
+            <td><code>${escapeHtml(s.companyNumber || '')}</code></td>
+            <td>${escapeHtml(s.signalType || '')}</td>
+            <td>${escapeHtml(s.signalDate || '')}</td>
+            <td class="score">${s.score ?? '—'}</td>
+            <td>${escapeHtml((s.enrichment || '').slice(0, 120))}</td>
+          </tr>`,
+        )
+        .join('');
+      wrap.innerHTML = `<table>
+        <thead><tr>
+          <th>Company</th><th>Number</th><th>Signal</th><th>Date</th><th>Score</th><th>Enrichment</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+    }
+
+    function escapeHtml(s) {
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    async function loadSignals() {
+      const res = await fetch(`${API}/housesignal/signals?limit=20`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const list = Array.isArray(data) ? data : data.signals || [];
+      renderTable(list);
+      document.getElementById('out').textContent =
+        `Stored signals: ${list.length}\n` +
+        (list[0]
+          ? `Latest: ${list[0].companyName} · ${list[0].signalType} · score ${list[0].score ?? '—'}`
+          : 'Empty feed');
+      return list;
+    }
+
+    async function runScan() {
+      const out = document.getElementById('out');
+      out.textContent = 'Scanning…';
+      const res = await fetch(`${API}/housesignal/scan`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const mode = data.source === 'live' ? 'live' : 'demo';
+      setStatus(
+        mode,
+        data.source === 'live'
+          ? 'Live Companies House'
+          : 'Demo signals (set COMPANIES_HOUSE_API_KEY on Render for live)',
+      );
+      out.textContent = [
+        `source=${data.source}`,
+        `scanned=${data.scanned} new=${data.newSignals} skipped=${data.skipped}`,
+        data.error ? `error=${data.error}` : null,
+        data.sicCodes?.length ? `sic=${data.sicCodes.join(',')}` : 'sic=all',
+      ]
+        .filter(Boolean)
+        .join('\n');
+      await loadSignals();
+    }
+
+    document.getElementById('scan').onclick = async () => {
+      try {
+        await runScan();
+      } catch (e) {
+        document.getElementById('out').textContent =
+          'API offline or cold-starting. Retry in ~30s. ' + (e.message || '');
+      }
+    };
+    document.getElementById('refresh').onclick = async () => {
+      try {
+        await loadSignals();
+      } catch {
+        document.getElementById('out').textContent = 'Could not load signals.';
+      }
+    };
+    document.getElementById('checkout').onclick = async () => {
+      const out = document.getElementById('out');
+      out.textContent = 'Creating Stripe checkout…';
+      try {
+        const res = await fetch(`${API}/checkout`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            vertical: 'housesignal',
+            email: 'trial@capstonesoftware.co.uk',
+          }),
+        });
+        const data = await res.json();
+        if (data.url) {
+          window.location.href = data.url;
+          return;
+        }
+        out.textContent = JSON.stringify(data, null, 2);
+      } catch (e) {
+        out.textContent = 'Checkout failed: ' + (e.message || e);
+      }
+    };
+
+    (async () => {
+      try {
+        const h = await fetch(location.origin + '/health').then((r) => r.json());
+        if (!h.ok) throw new Error('unhealthy');
+        await loadSignals();
+        setStatus('demo', 'API up · run scan to confirm live vs demo source');
+      } catch {
+        setStatus('', 'API cold-starting or offline — retry shortly');
+      }
+    })();
+  </script>
+</body>
+</html>
