@@ -18,8 +18,11 @@ You went to bed waiting on Twilio. This is what ran without you.
 - HouseSignal API: scan returns `source=demo` (no Companies House key on Render yet); 3 stored signals
 - Landings: `/` and `/agilepilot.html` return 200
 
+### Bug fixed overnight
+- Missing static pages (e.g. `/housesignal.html` before file existed) returned **500** because `@fastify/static` had `decorateReply: false` while the not-found handler called `reply.sendFile`. Fixed in a follow-up commit so unknown HTML paths fall back to the dashboard cleanly, and real files serve when present.
+
 ### Deploy note
-- Push of docs triggered a new Render build for `red-tape-engine` (`da77f1d`). Docs-only commit is safe. Later commits with HTML landings need that deploy to go live before `/housesignal.html` is public.
+- Commits: `da77f1d` (docs) → `38aee82` (HouseSignal landing) → static sendFile fix. Free-tier Render may take a while; after live, open `/housesignal.html`.
 
 ## Still blocked on you (human)
 
