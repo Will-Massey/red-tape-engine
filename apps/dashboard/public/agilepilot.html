@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Capstone Load-Shift — multi-supplier smart energy</title>
+  <meta name="description" content="Shift EV, battery and appliance loads to the cheapest, greener half-hours. Multi-supplier. White-label ready." />
+  <style>
+    :root {
+      --bg: #070b12;
+      --surface: #101820;
+      --border: #1c2a3a;
+      --text: #e8edf4;
+      --muted: #7a8ba3;
+      --accent: #00d4aa;
+      --accent2: #3b82f6;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.55;
+      min-height: 100vh;
+    }
+    header {
+      padding: 1.25rem 2rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    header a { color: var(--muted); text-decoration: none; font-size: 0.9rem; }
+    header a:hover { color: var(--accent); }
+    .logo { font-weight: 600; letter-spacing: -0.02em; }
+    .logo span { color: var(--accent); }
+    main { max-width: 960px; margin: 0 auto; padding: 3rem 1.5rem 4rem; }
+    h1 {
+      font-size: clamp(1.75rem, 4vw, 2.5rem);
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+      margin-bottom: 1rem;
+    }
+    .lead { font-size: 1.1rem; color: var(--muted); max-width: 36rem; margin-bottom: 2rem; }
+    .pills { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 2.5rem; }
+    .pill {
+      font-size: 0.75rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      background: var(--surface);
+    }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; margin-bottom: 2.5rem; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem;
+    }
+    .card h2 { font-size: 0.85rem; color: var(--accent); margin-bottom: 0.5rem; }
+    .card p { font-size: 0.9rem; color: var(--muted); }
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+    .panel h3 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 0.75rem; }
+    label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 0.35rem; }
+    select, button {
+      font: inherit;
+      padding: 0.55rem 0.9rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+    }
+    button {
+      background: rgba(0, 212, 170, 0.15);
+      border-color: rgba(0, 212, 170, 0.4);
+      color: var(--accent);
+      cursor: pointer;
+      font-weight: 500;
+    }
+    button:hover { background: rgba(0, 212, 170, 0.25); }
+    .row { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: flex-end; margin-bottom: 1rem; }
+    pre {
+      font-size: 0.78rem;
+      background: var(--bg);
+      border-radius: 8px;
+      padding: 1rem;
+      overflow: auto;
+      max-height: 360px;
+      color: var(--text);
+      border: 1px solid var(--border);
+      white-space: pre-wrap;
+    }
+    footer {
+      margin-top: 3rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    footer a { color: var(--accent2); }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">Capstone <span>Load-Shift</span></div>
+    <div>
+      <a href="/">Dashboard</a>
+      &nbsp;·&nbsp;
+      <a href="/docs" id="docs-link">Enterprise docs</a>
+    </div>
+  </header>
+  <main>
+    <h1>Shift load to the cheapest half-hours — on any open tariff</h1>
+    <p class="lead">
+      Multi-supplier control plane for EV, battery and appliance loads.
+      Policy-aware windows, carbon intensity, and an auditable savings ledger.
+      Built to white-label for energy retailers — and ready for households today.
+    </p>
+    <div class="pills">
+      <span class="pill">Octopus Agile</span>
+      <span class="pill">EDF open tariffs</span>
+      <span class="pill">NESO carbon signal</span>
+      <span class="pill">OEM white-label</span>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2>Multi-provider</h2>
+        <p>Normalised half-hourly rates via adapters — not locked to one supplier app.</p>
+      </div>
+      <div class="card">
+        <h2>Policy engine</h2>
+        <p>EV ready-by, peak avoid, price caps, green prefer — scored windows not raw lists.</p>
+      </div>
+      <div class="card">
+        <h2>Savings ledger</h2>
+        <p>Enterprise-grade attribution: baseline vs shifted kWh with audit trail.</p>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>Live demo — pick a provider</h3>
+      <div class="row">
+        <div>
+          <label for="provider">Tariff provider</label>
+          <select id="provider">
+            <option value="octopus">Octopus Energy</option>
+            <option value="edf">EDF (demo until keys)</option>
+            <option value="demo">Offline demo</option>
+          </select>
+        </div>
+        <button type="button" id="run">Get shift plan</button>
+      </div>
+      <pre id="out">Click “Get shift plan” to load recommended windows…</pre>
+    </div>
+
+    <footer>
+      Path A: white-label for Octopus / Kraken licensees ·
+      Path B: multi-supplier consumer ·
+      <a href="/">Ops dashboard</a>
+    </footer>
+  </main>
+  <script>
+    const API = location.origin.includes('3848')
+      ? 'http://localhost:3847/api'
+      : location.origin + '/api';
+
+    document.getElementById('run').onclick = async () => {
+      const provider = document.getElementById('provider').value;
+      const out = document.getElementById('out');
+      out.textContent = 'Loading…';
+      try {
+        const res = await fetch(
+          `${API}/agilepilot/slots?provider=${encodeURIComponent(provider)}&policy=true&enterprise=true`,
+        );
+        const data = await res.json();
+        const lines = [];
+        lines.push(data.plan?.summary || data.savingsEstimate);
+        lines.push(`Provider: ${data.provider?.name} · live=${data.provider?.live}`);
+        lines.push('');
+        for (const s of data.plan?.recommended || data.slots || []) {
+          lines.push(
+            `${new Date(s.start).toLocaleString('en-GB', { timeZone: 'Europe/London' })}  ` +
+              `${s.pricePencePerKwh}p/kWh  score=${s.score ?? '—'}  CO₂=${s.carbonGCo2PerKwh ?? '—'}g`,
+          );
+        }
+        out.textContent = lines.join('\n');
+      } catch (e) {
+        out.textContent = 'API offline — start Red Tape Engine (npm run dev).';
+      }
+    };
+  </script>
+</body>
+</html>

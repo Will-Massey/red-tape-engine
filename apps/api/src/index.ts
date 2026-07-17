@@ -43,7 +43,24 @@ import {
 } from '@rte/complybot';
 import { createSubscription, pollAndMatch, getAlerts } from '@rte/planningpulse';
 import { startDailyPoller } from '@rte/planningpulse/scheduler';
-import { getCheapSlots, getSlotHistory } from '@rte/agilepilot';
+import {
+  getCheapSlots,
+  getSlotHistory,
+  listProviders,
+  getLedgerSummary,
+  createPartner,
+  getPartnerByApiKey,
+  getPartnerBySlug,
+  listPartners,
+  partnerDashboard,
+  publicBrand,
+  receiveDeviceWebhook,
+  listDeviceEvents,
+  listPolicies,
+  upsertDefaultPolicies,
+  createPolicy,
+  rateLimit,
+} from '@rte/agilepilot';
 import { scanCompanies, getSignals } from '@rte/housesignal';
 import { eq } from 'drizzle-orm';
 
@@ -351,21 +368,208 @@ app.get('/api/planningpulse/alerts/:tenantId', async (req) => {
   return getAlerts(tenantId);
 });
 
-// ─── AgilePilot ─────────────────────────────────────────────
+// ─── AgilePilot / Capstone Load-Shift ───────────────────────
+// Multi-provider control plane — docs/agilepilot-enterprise.md
 
-app.get('/api/agilepilot/slots', async (req) => {
-  const { tenantId, region, history } = req.query as {
+function clientKey(req: { ip: string; headers: Record<string, unknown> }): string {
+  const partner = String(req.headers['x-partner-key'] ?? '');
+  return partner || req.ip || 'anon';
+}
+
+function enforceAgileRateLimit(req: { ip: string; headers: Record<string, unknown> }, reply: {
+  status: (c: number) => { send: (b: unknown) => unknown };
+  header: (k: string, v: string) => void;
+}) {
+  const hit = rateLimit(`agile:${clientKey(req)}`, { limit: 90, windowMs: 60_000 });
+  if (!hit.ok) {
+    reply.header('Retry-After', String(hit.retryAfterSec));
+    return reply.status(429).send({ error: 'Rate limit exceeded', retryAfterSec: hit.retryAfterSec });
+  }
+  return null;
+}
+
+async function resolvePartner(req: { headers: Record<string, unknown> }) {
+  const key = String(req.headers['x-partner-key'] ?? '');
+  if (!key) return null;
+  return getPartnerByApiKey(key);
+}
+
+app.get('/api/agilepilot/providers', async (req, reply) => {
+  const limited = enforceAgileRateLimit(req, reply);
+  if (limited) return limited;
+  return listProviders();
+});
+
+app.get('/api/agilepilot/slots', async (req, reply) => {
+  const limited = enforceAgileRateLimit(req, reply);
+  if (limited) return limited;
+
+  const partner = await resolvePartner(req);
+  const { tenantId, region, history, provider, enterprise, policy, ledger } = req.query as {
     tenantId?: string;
     region?: string;
     history?: string;
+    provider?: string;
+    enterprise?: string;
+    policy?: string;
+    ledger?: string;
   };
-  return getCheapSlots({ tenantId, region, includeHistory: history === 'true' });
+
+  const partnerConfig = (partner?.config ?? {}) as Record<string, unknown>;
+  const defaultProvider =
+    typeof partnerConfig.defaultProvider === 'string' ? partnerConfig.defaultProvider : undefined;
+
+  return getCheapSlots({
+    tenantId,
+    partnerId: partner?.id,
+    region,
+    provider: provider || defaultProvider,
+    includeHistory: history === 'true',
+    enterpriseMode:
+      enterprise === 'true' ||
+      partnerConfig.enterpriseMode === true ||
+      Boolean(partner),
+    withCarbon: true,
+    withPolicy: policy !== 'false',
+    recordLedger: ledger !== 'false' && Boolean(tenantId),
+  });
 });
 
-app.get('/api/agilepilot/history/:tenantId', async (req) => {
+app.get('/api/agilepilot/history/:tenantId', async (req, reply) => {
+  const limited = enforceAgileRateLimit(req, reply);
+  if (limited) return limited;
   const { tenantId } = req.params as { tenantId: string };
   const { days } = req.query as { days?: string };
   return getSlotHistory(tenantId, { days: days ? Number(days) : undefined });
+});
+
+app.get('/api/agilepilot/ledger/:tenantId', async (req, reply) => {
+  const limited = enforceAgileRateLimit(req, reply);
+  if (limited) return limited;
+  const { tenantId } = req.params as { tenantId: string };
+  const { days } = req.query as { days?: string };
+  return getLedgerSummary(tenantId, { days: days ? Number(days) : 30 });
+});
+
+app.get('/api/agilepilot/policies/:tenantId', async (req, reply) => {
+  const limited = enforceAgileRateLimit(req, reply);
+  if (limited) return limited;
+  const { tenantId } = req.params as { tenantId: string };
+  const { seed } = req.query as { seed?: string };
+  if (seed === 'true') return upsertDefaultPolicies(tenantId);
+  return listPolicies(tenantId);
+});
+
+app.post('/api/agilepilot/policies/:tenantId', async (req, reply) => {
+  const limited = enforceAgileRateLimit(req, reply);
+  if (limited) return limited;
+  const { tenantId } = req.params as { tenantId: string };
+  const body = req.body as {
+    name?: string;
+    kind?: string;
+    params?: Record<string, unknown>;
+    enabled?: boolean;
+  };
+  if (!body.name || !body.kind) {
+    return reply.status(400).send({ error: 'name and kind required' });
+  }
+  return createPolicy(tenantId, {
+    name: body.name,
+    kind: body.kind as 'ev_ready_by' | 'peak_avoid' | 'green_prefer' | 'max_price',
+    enabled: body.enabled,
+    params: body.params ?? {},
+  });
+});
+
+app.post('/api/agilepilot/devices/:tenantId/webhook', async (req, reply) => {
+  const limited = enforceAgileRateLimit(req, reply);
+  if (limited) return limited;
+  const { tenantId } = req.params as { tenantId: string };
+  const body = (req.body ?? {}) as {
+    deviceType?: string;
+    event?: string;
+    payload?: Record<string, unknown>;
+  };
+  if (!body.deviceType || !body.event) {
+    return reply.status(400).send({ error: 'deviceType and event required' });
+  }
+  return receiveDeviceWebhook({
+    tenantId,
+    deviceType: body.deviceType,
+    event: body.event,
+    payload: body.payload,
+  });
+});
+
+app.get('/api/agilepilot/devices/:tenantId/events', async (req, reply) => {
+  const limited = enforceAgileRateLimit(req, reply);
+  if (limited) return limited;
+  const { tenantId } = req.params as { tenantId: string };
+  return listDeviceEvents(tenantId);
+});
+
+// Partner / white-label (Path A OEM)
+app.get('/api/agilepilot/partners', async (req, reply) => {
+  const adminKey = process.env.AGILEPILOT_ADMIN_KEY || process.env.PLATFORM_API_KEY;
+  if (adminKey && req.headers['x-admin-key'] !== adminKey) {
+    return reply.status(401).send({ error: 'x-admin-key required' });
+  }
+  const partners = await listPartners();
+  return partners.map((p) => ({
+    id: p.id,
+    ...publicBrand(p),
+    active: p.active === 1,
+    createdAt: p.createdAt,
+  }));
+});
+
+app.post('/api/agilepilot/partners', async (req, reply) => {
+  const adminKey = process.env.AGILEPILOT_ADMIN_KEY || process.env.PLATFORM_API_KEY;
+  if (adminKey && req.headers['x-admin-key'] !== adminKey) {
+    return reply.status(401).send({ error: 'x-admin-key required' });
+  }
+  const body = (req.body ?? {}) as {
+    name?: string;
+    slug?: string;
+    brand?: Record<string, unknown>;
+    config?: Record<string, unknown>;
+  };
+  if (!body.name) return reply.status(400).send({ error: 'name required' });
+
+  const partner = await createPartner({
+    name: body.name,
+    slug: body.slug || body.name,
+    brand: body.brand as {
+      logoUrl?: string;
+      primaryColor?: string;
+      productName?: string;
+      supportEmail?: string;
+      domain?: string;
+    },
+    config: body.config,
+  });
+
+  // Return apiKey once at creation — store securely
+  return {
+    id: partner.id,
+    slug: partner.slug,
+    name: partner.name,
+    apiKey: partner.apiKey,
+    brand: publicBrand(partner),
+  };
+});
+
+app.get('/api/agilepilot/partner/me', async (req, reply) => {
+  const partner = await resolvePartner(req);
+  if (!partner) return reply.status(401).send({ error: 'x-partner-key required' });
+  return partnerDashboard(partner.id);
+});
+
+app.get('/api/agilepilot/brand/:slug', async (req, reply) => {
+  const { slug } = req.params as { slug: string };
+  const partner = await getPartnerBySlug(slug);
+  if (!partner || partner.active !== 1) return reply.status(404).send({ error: 'Not found' });
+  return publicBrand(partner);
 });
 
 // ─── HouseSignal ────────────────────────────────────────────
@@ -420,11 +624,20 @@ app.get('/api/dashboard/overview', async () => {
       const alerts = await getAlerts(tenant.id);
       metrics = { ...metrics, alertCount: alerts.length };
     } else if (tenant.vertical === 'agilepilot') {
-      const slots = await getCheapSlots({ tenantId: tenant.id });
+      const slots = await getCheapSlots({
+        tenantId: tenant.id,
+        withPolicy: true,
+        withCarbon: true,
+        recordLedger: false,
+      });
+      const ledger = await getLedgerSummary(tenant.id, { days: 30 });
       metrics = {
         ...metrics,
         cheapestSlot: slots.cheapest?.pricePencePerKwh,
         savings: slots.savingsEstimate,
+        planSummary: slots.plan?.summary,
+        provider: slots.provider?.name,
+        ledger30dGbp: ledger.totalSavingsGbp,
       };
     } else if (tenant.vertical === 'housesignal') {
       const signals = await getSignals(10);
@@ -465,8 +678,19 @@ app.get('/api/proxy/overview', async () => {
       const alerts = await getAlerts(tenant.id);
       metrics = { ...metrics, alertCount: alerts.length };
     } else if (tenant.vertical === 'agilepilot') {
-      const slots = await getCheapSlots({ tenantId: tenant.id });
-      metrics = { ...metrics, cheapestSlot: slots.cheapest?.pricePencePerKwh, savings: slots.savingsEstimate };
+      const slots = await getCheapSlots({
+        tenantId: tenant.id,
+        withPolicy: true,
+        recordLedger: false,
+      });
+      const ledger = await getLedgerSummary(tenant.id, { days: 30 });
+      metrics = {
+        ...metrics,
+        cheapestSlot: slots.cheapest?.pricePencePerKwh,
+        savings: slots.savingsEstimate,
+        planSummary: slots.plan?.summary,
+        ledger30dGbp: ledger.totalSavingsGbp,
+      };
     } else if (tenant.vertical === 'housesignal') {
       const signals = await getSignals(10);
       metrics = { ...metrics, recentSignals: signals.length };

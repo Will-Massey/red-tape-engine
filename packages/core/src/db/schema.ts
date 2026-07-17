@@ -113,3 +113,62 @@ export const companySignals = pgTable('company_signals', {
   score: integer('score').notNull(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
+
+/** White-label OEM partners (Path A — Octopus / Kraken licensees). */
+export const loadShiftPartners = pgTable('load_shift_partners', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull(),
+  slug: text('slug').notNull(),
+  apiKey: text('api_key').notNull(),
+  brand: jsonb('brand').notNull().default({}),
+  config: jsonb('config').notNull().default({}),
+  active: integer('active').notNull().default(1),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+/** Auditable savings estimates — enterprise attribution ledger. */
+export const savingsLedger = pgTable('savings_ledger', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id')
+    .notNull()
+    .references(() => tenants.id),
+  partnerId: uuid('partner_id').references(() => loadShiftPartners.id),
+  provider: text('provider').notNull(),
+  region: text('region'),
+  windowStart: timestamp('window_start').notNull(),
+  windowEnd: timestamp('window_end').notNull(),
+  pricePencePerKwh: doublePrecision('price_pence_per_kwh').notNull(),
+  baselinePence: doublePrecision('baseline_pence').notNull(),
+  kwh: doublePrecision('kwh').notNull(),
+  savingsPence: doublePrecision('savings_pence').notNull(),
+  carbonGCo2PerKwh: doublePrecision('carbon_g_co2_per_kwh'),
+  policyId: text('policy_id'),
+  metadata: jsonb('metadata').notNull().default({}),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+/** Per-tenant load-shift policies (EV deadline, peak avoid, green prefer). */
+export const loadShiftPolicies = pgTable('load_shift_policies', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id')
+    .notNull()
+    .references(() => tenants.id),
+  name: text('name').notNull(),
+  kind: text('kind').notNull(),
+  enabled: integer('enabled').notNull().default(1),
+  params: jsonb('params').notNull().default({}),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+/** Device OEM webhook stubs — no real control until partner integration. */
+export const deviceWebhookEvents = pgTable('device_webhook_events', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id')
+    .notNull()
+    .references(() => tenants.id),
+  deviceType: text('device_type').notNull(),
+  event: text('event').notNull(),
+  payload: jsonb('payload').notNull().default({}),
+  status: text('status').notNull().default('received'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});

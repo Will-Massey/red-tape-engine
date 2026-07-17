@@ -12,6 +12,12 @@ services:
         value: production
       - key: DEMO_MODE
         value: "true"
+      - key: AGILEPILOT_DEFAULT_PROVIDER
+        value: octopus
+      - key: AGILEPILOT_ENTERPRISE_MODE
+        value: "false"
+      - key: AGILEPILOT_FORCE_DEMO
+        value: "false"
       - key: DATABASE_URL
         sync: false
       - key: XAI_API_KEY
@@ -37,4 +43,8 @@ services:
       - key: RESEND_API_KEY
         sync: false
       - key: RESEND_FROM
+        sync: false
+      - key: AGILEPILOT_ADMIN_KEY
+        sync: false
+      - key: OCTOPUS_API_KEY
         sync: false

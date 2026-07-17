@@ -387,8 +387,10 @@
         metrics = `<div class="metric-row"><span>Alerts</span><span>${t.alertCount ?? 0}</span></div>`;
       } else if (t.vertical === 'agilepilot') {
         metrics = `
+          <div class="metric-row"><span>Provider</span><span>${t.provider ?? '—'}</span></div>
           <div class="metric-row"><span>Cheapest slot</span><span>${t.cheapestSlot ?? '—'}p/kWh</span></div>
-          <div class="metric-row"><span>Savings</span><span>${t.savings ?? '—'}</span></div>
+          <div class="metric-row"><span>Plan</span><span style="font-size:0.75rem;font-weight:500;max-width:60%;text-align:right">${t.planSummary ?? t.savings ?? '—'}</span></div>
+          <div class="metric-row"><span>Ledger 30d</span><span>£${t.ledger30dGbp ?? '0.00'}</span></div>
         `;
       } else if (t.vertical === 'housesignal') {
         metrics = `<div class="metric-row"><span>Recent signals</span><span>${t.recentSignals ?? 0}</span></div>`;
@@ -402,6 +404,10 @@
         ? `<button class="secondary" onclick="pollPlanning('${t.id}')">Poll Now</button>`
         : t.vertical === 'housesignal'
         ? `<button class="secondary" onclick="scanCompanies('${t.id}')">Scan CH</button>`
+        : t.vertical === 'agilepilot'
+        ? `<button onclick="loadAgileSlots('${t.id}')">Shift plan</button>
+           <button class="secondary" onclick="loadAgileLedger('${t.id}')">Ledger</button>
+           <a href="/agilepilot.html" style="text-decoration:none"><button class="secondary">Landing</button></a>`
         : '';
 
       return `
@@ -501,6 +507,45 @@
         body: JSON.stringify({ tenantId, sicCodes: ['62012'] }),
       });
       load();
+    }
+
+    async function loadAgileSlots(tenantId) {
+      const res = await fetch(
+        `${ORIGIN}/api/agilepilot/slots?tenantId=${encodeURIComponent(tenantId)}&history=true&policy=true`,
+      );
+      const data = await res.json();
+      const el = document.getElementById(`report-${tenantId}`);
+      const lines = [];
+      lines.push(data.plan?.summary || data.savingsEstimate || 'No plan');
+      lines.push(`Provider: ${data.provider?.name || '—'} (live=${data.provider?.live})`);
+      lines.push('');
+      lines.push('Recommended windows:');
+      for (const s of data.plan?.recommended || data.slots || []) {
+        const start = new Date(s.start).toLocaleString('en-GB', { timeZone: 'Europe/London' });
+        lines.push(
+          `  ${start}  ${s.pricePencePerKwh}p  score=${s.score ?? '—'}  CO₂=${s.carbonGCo2PerKwh ?? '—'}g`,
+        );
+        if (s.reasons?.length) lines.push(`    ${s.reasons.join('; ')}`);
+      }
+      el.textContent = lines.join('\n');
+      el.classList.add('visible');
+    }
+
+    async function loadAgileLedger(tenantId) {
+      const res = await fetch(`${ORIGIN}/api/agilepilot/ledger/${encodeURIComponent(tenantId)}?days=30`);
+      const data = await res.json();
+      const el = document.getElementById(`report-${tenantId}`);
+      el.textContent =
+        `Ledger 30d: £${data.totalSavingsGbp} est. savings (${data.entries} entries, ${data.totalKwh} kWh)\n\n` +
+        (data.recent || [])
+          .slice(0, 10)
+          .map(
+            (r) =>
+              `${new Date(r.createdAt).toLocaleDateString('en-GB')}  ${r.provider}  ` +
+              `${r.pricePencePerKwh}p  +${r.savingsPence}p`,
+          )
+          .join('\n');
+      el.classList.add('visible');
     }
 
     load();

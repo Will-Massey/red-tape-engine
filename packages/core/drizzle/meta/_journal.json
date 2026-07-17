@@ -15,6 +15,13 @@
       "when": 1752537600000,
       "tag": "0001_tradetap_cal_uid",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1752681600000,
+      "tag": "0002_agilepilot_platform",
+      "breakpoints": true
     }
   ]
 }

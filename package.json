@@ -17,8 +17,9 @@
     "db:seed": "npm run db:seed -w @rte/core",
     "smoke:tradetap": "npm run smoke -w @rte/tradetap",
     "test:receipt-vision": "npm run test:receipt-vision -w @rte/core",
+    "test:agilepilot-policy": "tsx packages/agilepilot/scripts/policy.test.mts",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "verify": "npm run typecheck && npm run test:receipt-vision && npm run build && npm run smoke:tradetap"
+    "verify": "npm run typecheck && npm run test:receipt-vision && npm run test:agilepilot-policy && npm run build && npm run smoke:tradetap"
   },
   "engines": {
     "node": ">=20"

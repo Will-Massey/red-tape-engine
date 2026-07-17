@@ -45,7 +45,12 @@ async function main() {
       name: 'Agile Home UK',
       vertical: 'agilepilot',
       plan: 'starter',
-      config: { hasEv: true, hasBattery: false },
+      config: {
+        hasEv: true,
+        hasBattery: false,
+        provider: 'octopus',
+        region: 'C',
+      },
     },
     {
       name: 'TalentBridge Recruiting',
@@ -122,6 +127,51 @@ async function main() {
         createdAt: new Date(twoDaysAgo.getTime() + 5 * 60 * 60 * 1000),
       },
     ]);
+  }
+
+  const agileTenant = others.find((t) => t.vertical === 'agilepilot');
+  if (agileTenant) {
+    await db.insert(schema.loadShiftPolicies).values([
+      {
+        tenantId: agileTenant.id,
+        name: 'EV ready by 07:00',
+        kind: 'ev_ready_by',
+        enabled: 1,
+        params: { deadlineHour: 7, chargeHours: 4 },
+      },
+      {
+        tenantId: agileTenant.id,
+        name: 'Avoid evening peak',
+        kind: 'peak_avoid',
+        enabled: 1,
+        params: { peakStartHour: 16, peakEndHour: 19 },
+      },
+      {
+        tenantId: agileTenant.id,
+        name: 'Prefer greener half-hours',
+        kind: 'green_prefer',
+        enabled: 1,
+        params: { maxGCo2PerKwh: 150 },
+      },
+    ]);
+
+    const [partner] = await db
+      .insert(schema.loadShiftPartners)
+      .values({
+        name: 'Demo Energy Partner',
+        slug: 'demo-energy',
+        apiKey: `lsp_demo_${Buffer.from('capstone-demo-partner').toString('hex')}`,
+        brand: {
+          productName: 'SmartShift',
+          primaryColor: '#00d4aa',
+          supportEmail: 'support@demo-energy.example',
+        },
+        config: { defaultProvider: 'octopus', enterpriseMode: true },
+        active: 1,
+      })
+      .returning();
+
+    console.log('AgilePilot partner seed:', partner?.slug, 'apiKey:', partner?.apiKey);
   }
 
   console.log('Seed complete — demo tenant:', dave?.name);

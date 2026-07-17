@@ -189,7 +189,11 @@ interface PlanningAlert {
 
 ## AgilePilot
 
-### CheapSlot (Octopus Agile)
+Multi-supplier load-shift product. Strategy: `docs/agilepilot-enterprise.md`.
+Primary GTM is white-label/OEM to Octopus/Kraken; consumer Path B is fallback.
+All rate fetches go through `TariffProvider` adapters (`octopus` | `edf` | `demo`).
+
+### CheapSlot (normalised)
 ```ts
 interface CheapSlot {
   start: string;
@@ -198,6 +202,19 @@ interface CheapSlot {
   recommendation: string;
 }
 ```
+
+### Routes
+| Method | Path | Notes |
+|--------|------|--------|
+| GET | /api/agilepilot/providers | List adapters + live status |
+| GET | /api/agilepilot/slots | `?provider=&tenantId=&policy=&enterprise=` + carbon + plan |
+| GET | /api/agilepilot/history/:tenantId | Usage-derived history |
+| GET | /api/agilepilot/ledger/:tenantId | Savings ledger (auditable) |
+| GET/POST | /api/agilepilot/policies/:tenantId | Load-shift policies |
+| POST | /api/agilepilot/devices/:tenantId/webhook | Device event stub |
+| POST | /api/agilepilot/partners | Create OEM partner (`x-admin-key`) |
+| GET | /api/agilepilot/partner/me | Partner dashboard (`x-partner-key`) |
+| GET | /api/agilepilot/brand/:slug | Public white-label brand |
 
 ## HouseSignal
 

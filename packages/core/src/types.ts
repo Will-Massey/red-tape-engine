@@ -91,6 +91,7 @@ export interface CheapSlot {
   end: string;
   pricePencePerKwh: number;
   recommendation: string;
+  carbonGCo2PerKwh?: number | null;
 }
 
 export interface CompanySignal {
