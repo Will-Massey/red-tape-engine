@@ -22,7 +22,9 @@ You went to bed waiting on Twilio. This is what ran without you.
 - Missing static pages (e.g. `/housesignal.html` before file existed) returned **500** because `@fastify/static` had `decorateReply: false` while the not-found handler called `reply.sendFile`. Fixed in a follow-up commit so unknown HTML paths fall back to the dashboard cleanly, and real files serve when present.
 
 ### Deploy note
-- Commits: `da77f1d` (docs) → `38aee82` (HouseSignal landing) → static sendFile fix. Free-tier Render may take a while; after live, open `/housesignal.html`.
+- **Live on Render:** commit `85e383a` (deploy finished ~20:46 UTC).
+- HouseSignal landing: https://red-tape-engine.onrender.com/housesignal.html
+- Post-deploy smoke: **HouseSignal all passed** · **AgilePilot all passed**
 
 ## Still blocked on you (human)
 
